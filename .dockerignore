@@ -1,0 +1,29 @@
+# Dependencies & build output (reinstalled/built in image)
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+
+# VCS & IDE
+.git
+.gitignore
+.vscode
+.idea
+
+# Env & secrets
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Tests & reports
+coverage
+**/coverage
+playwright-report
+test-results
+
+# Misc
+*.md
+.DS_Store
+Thumbs.db

@@ -1,0 +1,47 @@
+name: Docker Build
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: false
+          load: true
+          tags: |
+            healthcare-api:latest
+            healthcare-api:${{ github.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: false
+          load: true
+          tags: |
+            healthcare-web:latest
+            healthcare-web:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost/api
+            NEXT_PUBLIC_APP_NAME=Healthcare SaaS
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web

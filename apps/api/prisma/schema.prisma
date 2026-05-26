@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  name               String?
+  googleId           String?  @unique
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  password           String?
+  role               Role     @default(CUSTOMER)
+  hashedRefreshToken String?
+  tokenVersion       Int      @default(0)
+
+  organizationId String?
+  organization   Organization? @relation("OrganizationMembers", fields: [organizationId], references: [id])
+
+  ownedOrganization Organization? @relation("OrganizationOwner")
+
+  uploadedFiles File[]
+
+  notifications Notification[]
+
+  auditLogs AuditLog[]
+
+  organizationMemberships OrganizationMember[]
+}
+
+model Organization {
+  id          String  @id @default(uuid())
+  name        String
+  slug        String  @unique
+  description String?
+  logoUrl     String?
+  ownerId     String  @unique
+  owner       User    @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  members     User[]  @relation("OrganizationMembers")
+
+  // ===============================
+  // Stripe connect
+  // ===============================
+
+  stripeAccountId          String?
+  stripeOnboardingComplete Boolean @default(false)
+
+  payments            Payment[]
+  files               File[]
+  organizationMembers OrganizationMember[]
+  apiKeys             ApiKey[]
+
+  // =========================
+  // SAAS Billing
+  // =========================
+  stripeCustomerId             String?
+  stripeSubscriptionId         String?
+  stripeSubscriptionStatus     String?
+  stripeSubscriptionPlan       String?
+  subscriptionCurrentPeriodEnd DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+
+  subscriptionPlan SubscriptionPlan     @default(FREE)
+
+  memberLimit Int  @default(5)
+
+  storageLimitMb Int   @default(1024)
+
+  apiLimitPerMonth Int   @default(10000)
+}
+
+model Payment {
+  id                    String       @id @default(cuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id])
+  stripePaymentIntentId String       @unique
+  amount                Int
+  currency              String
+  status                String
+  platformFee           Int
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model File {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  uploadedById   String
+  uploadedBy     User         @relation(fields: [uploadedById], references: [id])
+  originalName   String
+  mimeType       String
+  size           Int
+  storageKey     String       @unique
+  publicUrl      String
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([uploadedById])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  title     String
+  message   String
+  metadata  Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, read])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  resource   String
+  resourceId String?
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([resource, resourceId])
+  @@index([createdAt])
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  role           Role         @default(STAFF)
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, userId])
+}
+
+model ApiKey {
+  id             String       @id @default(uuid())
+  key            String       @unique
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  revoked        Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+enum Role {
+  CUSTOMER
+  VENDOR
+  ADMIN
+  STAFF
+}
+
+
+enum SubscriptionPlan {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}

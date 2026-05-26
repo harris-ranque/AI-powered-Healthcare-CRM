@@ -1,0 +1,27 @@
+# Dependencies — installed fresh inside the image
+node_modules
+
+# Next.js output & dev cache (can be many GB)
+.next
+out
+build
+
+# VCS & IDE
+.git
+.gitignore
+.vscode
+.idea
+
+# Env & secrets
+.env
+.env.*
+
+# Tests & reports
+coverage
+playwright-report
+test-results
+
+# Misc
+*.md
+.DS_Store
+Thumbs.db

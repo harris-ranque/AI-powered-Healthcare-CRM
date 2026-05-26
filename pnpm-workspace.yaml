@@ -1,0 +1,16 @@
+packages:
+  - apps/*
+  - packages/*
+allowBuilds:
+  '@nestjs/core': false
+  '@prisma/engines': true
+  '@scarf/scarf': true
+  '@sentry-internal/node-cpu-profiler': true
+  '@tailwindcss/oxide': true
+  bcrypt: true
+  esbuild: true
+  msgpackr-extract: true
+  msw: false
+  prisma: true
+  sharp: false
+  unrs-resolver: false

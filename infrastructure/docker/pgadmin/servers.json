@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Healthcare SaaS (local)",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "healthcare_saas",
+      "Username": "admin",
+      "SSLMode": "prefer"
+    }
+  }
+}

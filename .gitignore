@@ -1,0 +1,57 @@
+# Dependencies
+node_modules
+
+# PNPM
+.pnpm-store
+
+# Next.js
+.next
+out
+build
+
+# Turborepo
+.turbo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+
+# TypeScript
+*.tsbuildinfo
+
+# Coverage
+coverage
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+
+# Docker
+*.pid
+
+# Testing
+playwright-report
+test-results
+
+# Misc
+tmp
+temp
