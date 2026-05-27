@@ -6,6 +6,7 @@ import {
   Res,
   UseGuards,
   Get,
+  UnauthorizedException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import {
@@ -62,13 +63,19 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthAccessTokenResponse> {
-    const tokens = await this.authService.refreshFromCookie(
-      this.parseRefreshTokenCookie(req),
-    );
+    try {
+      const tokens = await this.authService.refreshFromCookie(
+        this.parseRefreshTokenCookie(req),
+      );
 
-    this.setRefreshTokenCookie(res, tokens.refresh_token);
+      this.setRefreshTokenCookie(res, tokens.refresh_token);
 
-    return { access_token: tokens.access_token };
+      return { access_token: tokens.access_token };
+    } catch {
+      // Stale or invalid cookie — clear it so the client is not stuck in a login ↔ dashboard loop.
+      this.clearAuthCookies(res);
+      throw new UnauthorizedException('Invalid refresh token');
+    }
   }
 
   private parseBearerToken(req: Request): string | undefined {
@@ -96,12 +103,23 @@ export class AuthController {
   }
 
   private setRefreshTokenCookie(res: Response, refreshToken: string): void {
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
+    const maxAge = 7 * 24 * 60 * 60 * 1000;
+    const cookieOptions = {
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: 'lax' as const,
       path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge,
+    };
+
+    res.cookie('refresh_token', refreshToken, {
+      ...cookieOptions,
+      httpOnly: true,
+    });
+
+    // Lets the browser skip /auth/refresh when logged out (httpOnly cookie is not readable in JS).
+    res.cookie('has_session', '1', {
+      ...cookieOptions,
+      httpOnly: false,
     });
   }
 
@@ -118,18 +136,20 @@ export class AuthController {
       this.parseBearerToken(req),
     );
 
-    this.clearRefreshTokenCookie(res);
+    this.clearAuthCookies(res);
 
     return result;
   }
 
-  private clearRefreshTokenCookie(res: Response): void {
-    res.clearCookie('refresh_token', {
-      httpOnly: true,
+  private clearAuthCookies(res: Response): void {
+    const options = {
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: 'lax' as const,
       path: '/',
-    });
+    };
+
+    res.clearCookie('refresh_token', { ...options, httpOnly: true });
+    res.clearCookie('has_session', { ...options, httpOnly: false });
   }
 
   // ================================

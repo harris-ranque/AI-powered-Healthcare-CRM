@@ -25,7 +25,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   if (!accessToken) {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center text-zinc-500">
+        Redirecting to sign in...
+      </div>
+    );
   }
 
   return <DashboardLayout>{children}</DashboardLayout>;

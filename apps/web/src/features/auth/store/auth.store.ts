@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { authApi } from '../api/auth.api';
 import { AuthUser } from '../types/auth-user.type';
+import { hasSessionCookie } from '../utils/has-session-cookie';
 
 interface AuthStore {
   accessToken: string | null;
@@ -22,10 +23,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
   setUser: (user: AuthUser) => set({ user }),
 
   restoreSession: async () => {
+    if (!hasSessionCookie()) {
+      set({ accessToken: null, isInitialized: true });
+      return;
+    }
+
     try {
       const data = await authApi.refresh();
       set({ accessToken: data.access_token, isInitialized: true });
     } catch {
+      // API clears cookies on failed refresh; avoid a second logout request.
       set({ accessToken: null, isInitialized: true });
     }
   },
