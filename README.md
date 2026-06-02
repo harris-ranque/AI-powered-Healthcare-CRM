@@ -144,6 +144,16 @@ Open <http://localhost:3000/register> to create an account, or <http://localhost
 
 ## Authentication flow
 
+![Multi-persona authentication flow](docs/images/auth-flow.png)
+
+The platform supports three signup personas (clinic owner, staff, patient) and routes each one to the right surface after auth:
+
+- **Clinic owner** → `/dashboard/` (creates an organization + ACTIVE membership).
+- **Staff** (doctor / nurse / receptionist) → `/onboarding/pending/` until the owner approves them, then `/dashboard/`.
+- **Patient** → `/portal/` (no organization membership; uses patient-scoped endpoints).
+
+Token handling:
+
 - Access tokens (JWT, 15 min) are returned in the response body and held in memory by Zustand.
 - Refresh tokens (JWT, 7 days) are stored as an **httpOnly** `refresh_token` cookie set by the API.
 - A non-httpOnly `has_session` cookie is set alongside so the SPA can skip `/auth/refresh` calls when logged out (and avoid noisy 401s in the console).
