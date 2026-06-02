@@ -1,76 +1,60 @@
-'use client';
-
 import Link from 'next/link';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { authApi } from '@/features/auth/api/auth.api';
-import { useAuthStore } from '@/features/auth/store/auth.store';
-import { useNotificationStore } from '@/features/notifications/store/notification.store';
-import { getErrorMessage } from '@/features/notifications/utils/get-error-message';
+import { Building2, Stethoscope, UserRound } from 'lucide-react';
 
-export default function RegisterPage() {
-  const router = useRouter();
-  const setAccessToken = useAuthStore((state) => state.setAccessToken);
-  const notify = useNotificationStore((state) => state.notify);
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+const options = [
+  {
+    title: 'Clinic owner',
+    description: 'Create a new clinic workspace and manage your team.',
+    href: '/register/clinic',
+    icon: Building2,
+  },
+  {
+    title: 'Staff',
+    description: 'Join an existing clinic with your clinic slug (owner approval required).',
+    href: '/register/staff',
+    icon: Stethoscope,
+  },
+  {
+    title: 'Patient',
+    description: 'Access your health records and appointments in the patient portal.',
+    href: '/register/patient',
+    icon: UserRound,
+  },
+];
 
-  const handleRegister = async () => {
-    try {
-      setLoading(true);
-      const data = await authApi.register(email, password, name);
-      setAccessToken(data.access_token);
-      notify({ type: 'success', message: 'Account created successfully' });
-      router.push('/dashboard');
-    } catch (error) {
-      notify({
-        type: 'error',
-        message: getErrorMessage(error, 'Failed to register'),
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
+export default function RegisterChooserPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-sm space-y-4 rounded-lg border p-4">
-        <h1 className="text-2xl font-bold">Create account</h1>
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-3xl space-y-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">Create your account</h1>
+          <p className="text-muted-foreground mt-2 text-sm">
+            Choose how you want to use Healthcare SaaS
+          </p>
+        </div>
 
-        <input
-          className="w-full border p-2"
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          type="text"
-          autoComplete="name"
-        />
-        <input
-          className="w-full border p-2"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          type="email"
-          autoComplete="email"
-        />
-        <input
-          className="w-full border p-2"
-          placeholder="Password (min. 6 characters)"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          type="password"
-          autoComplete="new-password"
-        />
-        <button
-          className="w-full rounded bg-black p-2 text-white disabled:opacity-50"
-          onClick={handleRegister}
-          disabled={loading || !name || !email || !password}
-        >
-          {loading ? 'Creating account...' : 'Register'}
-        </button>
+        <div className="grid gap-4 md:grid-cols-3">
+          {options.map((option) => {
+            const Icon = option.icon;
+            return (
+              <Card key={option.href} className="flex flex-col">
+                <CardHeader>
+                  <Icon className="text-primary mb-2 h-8 w-8" />
+                  <CardTitle className="text-lg">{option.title}</CardTitle>
+                  <CardDescription>{option.description}</CardDescription>
+                </CardHeader>
+                <CardContent className="mt-auto">
+                  <Button asChild className="w-full">
+                    <Link href={option.href}>Continue</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
 
         <p className="text-center text-sm text-zinc-600">
           Already have an account?{' '}

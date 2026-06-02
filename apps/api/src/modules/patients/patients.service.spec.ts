@@ -53,7 +53,13 @@ describe('PatientsService', () => {
       overrides: Partial<ListPatientsDto> = {},
     ): ListPatientsDto {
       const dto = new ListPatientsDto();
-      Object.assign(dto, { page: 1, limit: 20, ...overrides });
+      Object.assign(dto, {
+        page: 1,
+        limit: 20,
+        sortBy: 'lastName',
+        order: 'asc',
+        ...overrides,
+      });
       return dto;
     }
 
@@ -71,7 +77,7 @@ describe('PatientsService', () => {
           where: { organizationId: ORG_ID, deletedAt: null },
           skip: 20,
           take: 20,
-          orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+          orderBy: [{ lastName: 'asc' }, { id: 'asc' }],
         }),
       );
       expect(prismaPatient.count).toHaveBeenCalledWith({
@@ -93,6 +99,22 @@ describe('PatientsService', () => {
       const result = await service.list(ORG_ID, buildQuery());
 
       expect(result.meta.totalPages).toBe(0);
+    });
+
+    it('builds dynamic orderBy from sortBy + order with a stable id tie-break', async () => {
+      prismaPatient.findMany.mockResolvedValue([]);
+      prismaPatient.count.mockResolvedValue(0);
+
+      await service.list(
+        ORG_ID,
+        buildQuery({ sortBy: 'createdAt', order: 'desc' }),
+      );
+
+      expect(prismaPatient.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        }),
+      );
     });
 
     it('applies a case-insensitive OR clause when search is provided', async () => {

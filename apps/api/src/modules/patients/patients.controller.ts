@@ -90,4 +90,17 @@ export class PatientsController {
       userId: req.user.sub,
     });
   }
+
+  @Post(':id/restore')
+  @RequirePermissions(Permission.PATIENT_DELETE)
+  restore(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentOrganization() organization: OrganizationContext,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<Patient> {
+    return this.patientsService.restore(id, {
+      organizationId: organization.organizationId,
+      userId: req.user.sub,
+    });
+  }
 }

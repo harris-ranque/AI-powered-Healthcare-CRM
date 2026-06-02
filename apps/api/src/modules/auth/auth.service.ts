@@ -1,10 +1,11 @@
 import {
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Role, type User } from '@prisma/client';
+import { MemberStatus, Role, type User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import {
   readTokenVersion,
@@ -12,7 +13,9 @@ import {
 } from '../../common/utils/token-version';
 import { PrismaService } from '../../database/prisma.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
+import { RegisterClinicDto } from './dto/register-clinic.dto';
+import { RegisterPatientDto } from './dto/register-patient.dto';
+import { RegisterStaffDto } from './dto/register-staff.dto';
 import { JwtPayload } from './types/jwt-payload.type';
 import { getLoginRateLimiter } from '../../common/security/login-rate-limit';
 import { EmailService } from '../queues/email/email.service';
@@ -27,6 +30,14 @@ export type AuthAccessTokenResponse = Pick<AuthTokenResponse, 'access_token'>;
 
 export type AuthLogoutResponse = {
   message: string;
+};
+
+export type AuthMeResponse = {
+  id: string;
+  email: string;
+  role: Role;
+  organizationId?: string;
+  memberStatus?: MemberStatus;
 };
 
 export type GoogleProfileInput = {
@@ -50,9 +61,11 @@ export class AuthService {
   ) {}
 
   // ================================
-  // Register
+  // Register clinic owner
   // ================================
-  async register(registerDto: RegisterDto): Promise<AuthTokenResponse> {
+  async registerClinic(
+    registerDto: RegisterClinicDto,
+  ): Promise<AuthTokenResponse> {
     const existingUser = await this.prisma.client.user.findUnique({
       where: { email: registerDto.email },
     });
@@ -62,12 +75,49 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
-    const user = await this.prisma.client.user.create({
-      data: {
-        email: registerDto.email,
-        password: hashedPassword,
-        name: registerDto.name,
-      },
+    const existingSlug = await this.prisma.client.organization.findUnique({
+      where: { slug: registerDto.clinicSlug },
+    });
+    if (existingSlug) {
+      throw new ConflictException('Clinic slug already exists');
+    }
+
+    const user = await this.prisma.client.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          email: registerDto.email,
+          password: hashedPassword,
+          name: registerDto.name,
+          role: Role.CLINIC_OWNER,
+        },
+      });
+
+      const organization = await tx.organization.create({
+        data: {
+          name: registerDto.clinicName,
+          slug: registerDto.clinicSlug,
+          ownerId: createdUser.id,
+          members: {
+            connect: { id: createdUser.id },
+          },
+        },
+      });
+
+      await tx.organizationMember.create({
+        data: {
+          organizationId: organization.id,
+          userId: createdUser.id,
+          role: Role.CLINIC_OWNER,
+          status: MemberStatus.ACTIVE,
+        },
+      });
+
+      await tx.user.update({
+        where: { id: createdUser.id },
+        data: { organizationId: organization.id },
+      });
+
+      return createdUser;
     });
     await this.emailService.sendWelcomeEmail(user.email, user.name ?? '');
     const tokens = await this.generateToken(user.id, user.email, user.role);
@@ -75,6 +125,126 @@ export class AuthService {
     await this.updateRefreshToken(user.id, tokens.refresh_token);
 
     return tokens;
+  }
+
+  async registerStaff(registerDto: RegisterStaffDto): Promise<AuthTokenResponse> {
+    const existingUser = await this.prisma.client.user.findUnique({
+      where: { email: registerDto.email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('User already exists');
+    }
+
+    const organization = await this.prisma.client.organization.findUnique({
+      where: { slug: registerDto.clinicSlug },
+      select: { id: true, name: true, owner: { select: { email: true } } },
+    });
+    if (!organization) {
+      throw new NotFoundException('Clinic not found');
+    }
+
+    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+    const user = await this.prisma.client.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          email: registerDto.email,
+          password: hashedPassword,
+          name: registerDto.name,
+          role: registerDto.role,
+          organizationId: organization.id,
+        },
+      });
+
+      await tx.organizationMember.create({
+        data: {
+          organizationId: organization.id,
+          userId: createdUser.id,
+          role: registerDto.role,
+          status: MemberStatus.PENDING,
+        },
+      });
+
+      return createdUser;
+    });
+
+    await this.emailService.sendWelcomeEmail(user.email, user.name ?? '');
+    const tokens = await this.generateToken(user.id, user.email, user.role);
+    await this.updateRefreshToken(user.id, tokens.refresh_token);
+    return tokens;
+  }
+
+  async registerPatient(
+    registerDto: RegisterPatientDto,
+  ): Promise<AuthTokenResponse> {
+    const existingUser = await this.prisma.client.user.findUnique({
+      where: { email: registerDto.email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('User already exists');
+    }
+
+    const organization = await this.prisma.client.organization.findUnique({
+      where: { slug: registerDto.clinicSlug },
+      select: { id: true },
+    });
+    if (!organization) {
+      throw new NotFoundException('Clinic not found');
+    }
+
+    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+    const user = await this.prisma.client.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          email: registerDto.email,
+          password: hashedPassword,
+          name: `${registerDto.firstName} ${registerDto.lastName}`.trim(),
+          role: Role.PATIENT,
+          organizationId: organization.id,
+        },
+      });
+
+      const existingPatient = await tx.patient.findFirst({
+        where: {
+          organizationId: organization.id,
+          email: registerDto.email,
+          userId: null,
+        },
+      });
+
+      if (existingPatient) {
+        await tx.patient.update({
+          where: { id: existingPatient.id },
+          data: { userId: createdUser.id },
+        });
+      } else {
+        await tx.patient.create({
+          data: {
+            organizationId: organization.id,
+            userId: createdUser.id,
+            firstName: registerDto.firstName,
+            lastName: registerDto.lastName,
+            email: registerDto.email,
+            phone: registerDto.phone,
+            dateOfBirth: registerDto.dateOfBirth
+              ? new Date(registerDto.dateOfBirth)
+              : undefined,
+          },
+        });
+      }
+
+      return createdUser;
+    });
+
+    await this.emailService.sendWelcomeEmail(user.email, user.name ?? '');
+    const tokens = await this.generateToken(user.id, user.email, user.role);
+    await this.updateRefreshToken(user.id, tokens.refresh_token);
+    return tokens;
+  }
+
+  async registerLegacy(registerDto: RegisterClinicDto): Promise<AuthTokenResponse> {
+    return this.registerClinic(registerDto);
   }
 
   // ================================
@@ -222,6 +392,34 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
+  async me(userId: string): Promise<AuthMeResponse> {
+    const user = await this.prisma.client.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+      },
+    });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const membership = await this.prisma.client.organizationMember.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+      select: { organizationId: true, status: true },
+    });
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      organizationId: membership?.organizationId,
+      memberStatus: membership?.status,
+    };
+  }
+
   async getUserIdFromAccessToken(
     accessToken: string | undefined,
   ): Promise<string | undefined> {
@@ -270,6 +468,7 @@ export class AuthService {
           email: profile.email,
           googleId: profile.googleId,
           name: profile.name,
+          role: Role.PATIENT,
         },
       });
     }

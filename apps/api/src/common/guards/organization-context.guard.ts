@@ -5,6 +5,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
 import { getPermissionsForRole } from '../permissions';
@@ -33,8 +34,12 @@ export class OrganizationContextGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
     const userId = request.user?.sub;
+    const userRole = request.user?.role;
     if (!userId) {
       throw new UnauthorizedException('Authentication required');
+    }
+    if (userRole === Role.PATIENT) {
+      return true;
     }
 
     const requestedOrganizationId = this.readHeader(
@@ -43,11 +48,15 @@ export class OrganizationContextGuard implements CanActivate {
 
     const membership = requestedOrganizationId
       ? await this.prisma.client.organizationMember.findFirst({
-          where: { organizationId: requestedOrganizationId, userId },
+          where: {
+            organizationId: requestedOrganizationId,
+            userId,
+            status: 'ACTIVE',
+          },
           select: { organizationId: true, role: true },
         })
       : await this.prisma.client.organizationMember.findFirst({
-          where: { userId },
+          where: { userId, status: 'ACTIVE' },
           orderBy: { createdAt: 'asc' },
           select: { organizationId: true, role: true },
         });
@@ -56,7 +65,7 @@ export class OrganizationContextGuard implements CanActivate {
       throw new ForbiddenException(
         requestedOrganizationId
           ? 'Invalid organization access'
-          : 'No organization context available',
+          : 'Membership pending approval or no organization context available',
       );
     }
 

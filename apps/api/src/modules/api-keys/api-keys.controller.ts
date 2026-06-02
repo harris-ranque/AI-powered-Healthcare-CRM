@@ -7,7 +7,7 @@ import { RolesGuard } from 'src/common/guards/role.guard';
 
 @Controller('api-keys')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN)
+@Roles(Role.SUPER_ADMIN, Role.CLINIC_OWNER)
 export class ApiKeysController {
   constructor(private readonly apiKeysService: ApiKeysService) {}
 

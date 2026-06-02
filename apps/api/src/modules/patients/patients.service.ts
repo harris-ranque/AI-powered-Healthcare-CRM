@@ -9,7 +9,12 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 
 import { CreatePatientDto } from './dto/create-patient.dto';
-import { ListPatientsDto } from './dto/list-patients.dto';
+import {
+  ListPatientsDto,
+  PATIENT_SORT_FIELDS,
+  type PatientSortField,
+  type PatientSortOrder,
+} from './dto/list-patients.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { paginate, type Paginated } from './types/paginated.type';
 
@@ -50,10 +55,10 @@ export class PatientsService {
     organizationId: string,
     query: ListPatientsDto,
   ): Promise<Paginated<Patient>> {
-    const { page, limit, search } = query;
+    const { page, limit, search, includeDeleted, sortBy, order } = query;
     const where: Prisma.PatientWhereInput = {
       organizationId,
-      deletedAt: null,
+      ...(includeDeleted ? {} : { deletedAt: null }),
       ...(search
         ? {
             OR: [
@@ -67,11 +72,12 @@ export class PatientsService {
     };
 
     const skip = (page - 1) * limit;
+    const orderBy = this.buildOrderBy(sortBy, order);
 
     const [data, total] = await Promise.all([
       this.prisma.client.patient.findMany({
         where,
-        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        orderBy,
         skip,
         take: limit,
       }),
@@ -133,12 +139,49 @@ export class PatientsService {
     return deleted;
   }
 
+  async restore(id: string, actor: PatientActor): Promise<Patient> {
+    const existing = await this.findOwnedPatient(id, actor.organizationId, {
+      includeDeleted: true,
+    });
+
+    if (existing.deletedAt === null) {
+      throw new ConflictException('Patient is not deleted');
+    }
+
+    try {
+      const restored = await this.prisma.client.patient.update({
+        where: { id },
+        data: { deletedAt: null },
+      });
+
+      await this.auditService.log({
+        userId: actor.userId,
+        organizationId: actor.organizationId,
+        action: 'PATIENT_RESTORED',
+        resource: 'PATIENT',
+        resourceId: restored.id,
+      });
+
+      return restored;
+    } catch (error) {
+      // Possible when another active patient already owns this email in the org
+      // (the partial unique index rejects the restore).
+      this.rethrowOnDuplicateEmail(error);
+      throw error;
+    }
+  }
+
   private async findOwnedPatient(
     id: string,
     organizationId: string,
+    options: { includeDeleted?: boolean } = {},
   ): Promise<Patient> {
     const patient = await this.prisma.client.patient.findFirst({
-      where: { id, organizationId, deletedAt: null },
+      where: {
+        id,
+        organizationId,
+        ...(options.includeDeleted ? {} : { deletedAt: null }),
+      },
     });
 
     if (!patient) {
@@ -194,6 +237,24 @@ export class PatientsService {
     }
 
     return data;
+  }
+
+  private buildOrderBy(
+    sortBy: PatientSortField,
+    order: PatientSortOrder,
+  ): Prisma.PatientOrderByWithRelationInput[] {
+    // Whitelist sortBy against the known fields before handing it to Prisma so
+    // we never interpolate untrusted strings into the orderBy clause, even if
+    // the DTO's `@IsIn` validation were ever bypassed.
+    const allowed: readonly string[] = PATIENT_SORT_FIELDS;
+    const field: PatientSortField = allowed.includes(sortBy)
+      ? sortBy
+      : 'lastName';
+    const direction: PatientSortOrder = order === 'desc' ? 'desc' : 'asc';
+
+    // `id: 'asc'` tie-breaks keep pagination stable when many rows share the
+    // same sort value (e.g. identical lastName).
+    return [{ [field]: direction }, { id: 'asc' }];
   }
 
   private rethrowOnDuplicateEmail(error: unknown): void {

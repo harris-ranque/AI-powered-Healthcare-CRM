@@ -10,17 +10,21 @@ import { Permission } from './permission.constants';
  * keeping `getPermissionsForRole` as the public API.
  */
 
-const READ_ONLY: Permission[] = [Permission.PATIENT_READ, Permission.FILE_READ];
-
-const STAFF_PERMISSIONS: Permission[] = [
+const DOCTOR_PERMISSIONS: Permission[] = [
   Permission.PATIENT_READ,
   Permission.PATIENT_WRITE,
   Permission.FILE_READ,
   Permission.FILE_WRITE,
 ];
 
-const ADMIN_PERMISSIONS: Permission[] = [
-  ...STAFF_PERMISSIONS,
+const RECEPTIONIST_PERMISSIONS: Permission[] = [
+  Permission.PATIENT_READ,
+  Permission.PATIENT_WRITE,
+  Permission.FILE_READ,
+];
+
+const CLINIC_OWNER_PERMISSIONS: Permission[] = [
+  ...DOCTOR_PERMISSIONS,
   Permission.PATIENT_DELETE,
   Permission.FILE_DELETE,
   Permission.AUDIT_READ,
@@ -30,10 +34,12 @@ const ADMIN_PERMISSIONS: Permission[] = [
 ];
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  ADMIN: ADMIN_PERMISSIONS,
-  VENDOR: ADMIN_PERMISSIONS,
-  STAFF: STAFF_PERMISSIONS,
-  CUSTOMER: READ_ONLY,
+  CLINIC_OWNER: CLINIC_OWNER_PERMISSIONS,
+  DOCTOR: DOCTOR_PERMISSIONS,
+  NURSE: DOCTOR_PERMISSIONS,
+  RECEPTIONIST: RECEPTIONIST_PERMISSIONS,
+  PATIENT: [],
+  SUPER_ADMIN: CLINIC_OWNER_PERMISSIONS,
 };
 
 export function getPermissionsForRole(role: Role): Permission[] {

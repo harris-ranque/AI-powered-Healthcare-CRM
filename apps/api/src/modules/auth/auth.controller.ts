@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Post,
@@ -11,15 +12,20 @@ import {
 import type { Request, Response } from 'express';
 import {
   AuthAccessTokenResponse,
+  AuthMeResponse,
   AuthLogoutResponse,
   AuthService,
   AuthTokenResponse,
   GoogleAuthResult,
 } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
+import { RegisterClinicDto } from './dto/register-clinic.dto';
+import { RegisterPatientDto } from './dto/register-patient.dto';
+import { RegisterStaffDto } from './dto/register-staff.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { Throttle } from '@nestjs/throttler';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../../common/types/authenticated-request.type';
 
 @Controller('auth')
 export class AuthController {
@@ -29,8 +35,47 @@ export class AuthController {
   // Register
   // ================================
   @Post('register')
-  async register(@Body() registerDto: RegisterDto): Promise<AuthTokenResponse> {
-    return this.authService.register(registerDto);
+  async register(
+    @Body() registerDto: RegisterClinicDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthAccessTokenResponse> {
+    return this.issueTokensResponse(
+      res,
+      await this.authService.registerLegacy(registerDto),
+    );
+  }
+
+  @Post('register/clinic')
+  async registerClinic(
+    @Body() registerDto: RegisterClinicDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthAccessTokenResponse> {
+    return this.issueTokensResponse(
+      res,
+      await this.authService.registerClinic(registerDto),
+    );
+  }
+
+  @Post('register/staff')
+  async registerStaff(
+    @Body() registerDto: RegisterStaffDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthAccessTokenResponse> {
+    return this.issueTokensResponse(
+      res,
+      await this.authService.registerStaff(registerDto),
+    );
+  }
+
+  @Post('register/patient')
+  async registerPatient(
+    @Body() registerDto: RegisterPatientDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthAccessTokenResponse> {
+    return this.issueTokensResponse(
+      res,
+      await this.authService.registerPatient(registerDto),
+    );
   }
 
   // ================================
@@ -78,6 +123,16 @@ export class AuthController {
     }
   }
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async me(@Req() req: AuthenticatedRequest): Promise<AuthMeResponse> {
+    const userId = req.user?.sub;
+    if (!userId) {
+      throw new BadRequestException('User context missing');
+    }
+    return this.authService.me(userId);
+  }
+
   private parseBearerToken(req: Request): string | undefined {
     const authHeader = req.headers.authorization;
     if (typeof authHeader !== 'string') {
@@ -100,6 +155,14 @@ export class AuthController {
 
     const value = (rawCookies as Record<string, unknown>)['refresh_token'];
     return typeof value === 'string' ? value : undefined;
+  }
+
+  private issueTokensResponse(
+    res: Response,
+    tokens: AuthTokenResponse,
+  ): AuthAccessTokenResponse {
+    this.setRefreshTokenCookie(res, tokens.refresh_token);
+    return { access_token: tokens.access_token };
   }
 
   private setRefreshTokenCookie(res: Response, refreshToken: string): void {

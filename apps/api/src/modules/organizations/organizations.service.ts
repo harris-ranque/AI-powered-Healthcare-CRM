@@ -4,11 +4,23 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { Organization, Role as PrismaRole } from '@prisma/client';
+import {
+  MemberStatus,
+  Organization,
+  Role as PrismaRole,
+} from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
-import { Role } from '../../common/enums/role.enum';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
+
+export type OrganizationMemberListItem = {
+  userId: string;
+  email: string;
+  name: string | null;
+  role: PrismaRole;
+  status: MemberStatus;
+  createdAt: Date;
+};
 
 @Injectable()
 export class OrganizationsService {
@@ -59,19 +71,20 @@ export class OrganizationsService {
         include: { members: true },
       });
 
-      // Owners get an ADMIN membership so the org context guard sees them.
+      // Owners get an ACTIVE CLINIC_OWNER membership for the org context guard.
       await tx.organizationMember.create({
         data: {
           organizationId: organization.id,
           userId,
-          role: PrismaRole.ADMIN,
+          role: PrismaRole.CLINIC_OWNER,
+          status: MemberStatus.ACTIVE,
         },
       });
 
       await tx.user.update({
         where: { id: userId },
         data: {
-          role: Role.VENDOR,
+          role: PrismaRole.CLINIC_OWNER,
           organizationId: organization.id,
         },
       });
@@ -111,5 +124,77 @@ export class OrganizationsService {
     }
 
     return organization;
+  }
+
+  async listMembers(
+    organizationId: string,
+    status?: MemberStatus,
+  ): Promise<OrganizationMemberListItem[]> {
+    const members = await this.prisma.client.organizationMember.findMany({
+      where: {
+        organizationId,
+        ...(status ? { status } : {}),
+      },
+      orderBy: { createdAt: 'asc' },
+      include: { user: { select: { id: true, email: true, name: true } } },
+    });
+
+    return members.map((member) => ({
+      userId: member.user.id,
+      email: member.user.email,
+      name: member.user.name,
+      role: member.role,
+      status: member.status,
+      createdAt: member.createdAt,
+    }));
+  }
+
+  async updateMemberStatus(
+    organizationId: string,
+    userId: string,
+    status: MemberStatus,
+  ): Promise<{ userId: string; status: MemberStatus }> {
+    const member = await this.prisma.client.organizationMember.findFirst({
+      where: { organizationId, userId },
+      select: { id: true },
+    });
+    if (!member) {
+      throw new NotFoundException('Member not found');
+    }
+
+    const updated = await this.prisma.client.organizationMember.update({
+      where: { id: member.id },
+      data: { status },
+      select: { userId: true, status: true },
+    });
+
+    return updated;
+  }
+
+  async updateMemberRole(
+    organizationId: string,
+    userId: string,
+    role: PrismaRole,
+  ): Promise<{ userId: string; role: PrismaRole }> {
+    const member = await this.prisma.client.organizationMember.findFirst({
+      where: { organizationId, userId },
+      select: { id: true, role: true },
+    });
+    if (!member) {
+      throw new NotFoundException('Member not found');
+    }
+
+    const updated = await this.prisma.client.organizationMember.update({
+      where: { id: member.id },
+      data: { role },
+      select: { userId: true, role: true },
+    });
+
+    await this.prisma.client.user.update({
+      where: { id: userId },
+      data: { role },
+    });
+
+    return updated;
   }
 }

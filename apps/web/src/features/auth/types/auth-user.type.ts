@@ -1,5 +1,10 @@
+import type { MemberStatus } from './member-status.type';
+import type { Role } from './role.type';
+
 export type AuthUser = {
-  sub: string;
+  id: string;
   email: string;
-  role: 'CUSTOMER' | 'ADMIN' | 'VENDOR';
+  role: Role;
+  organizationId?: string;
+  memberStatus?: MemberStatus;
 };

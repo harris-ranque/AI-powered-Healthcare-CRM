@@ -2,16 +2,15 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+
 import { authApi } from '@/features/auth/api/auth.api';
-import { useAuthStore } from '@/features/auth/store/auth.store';
+import { useCompleteAuth } from '@/features/auth/hooks/use-complete-auth';
 import { useNotificationStore } from '@/features/notifications/store/notification.store';
 import { getErrorMessage } from '@/features/notifications/utils/get-error-message';
 import { env } from '@/config/env';
 
 export default function LoginPage() {
-  const router = useRouter();
-  const setAccessToken = useAuthStore((state) => state.setAccessToken);
+  const { completeAuth } = useCompleteAuth();
   const notify = useNotificationStore((state) => state.notify);
 
   const [email, setEmail] = useState('');
@@ -26,9 +25,8 @@ export default function LoginPage() {
     try {
       setLoading(true);
       const data = await authApi.login(email, password);
-      setAccessToken(data.access_token);
       notify({ type: 'success', message: 'Logged in successfully' });
-      router.push('/dashboard');
+      await completeAuth(data.access_token);
     } catch (error) {
       notify({
         type: 'error',
@@ -62,7 +60,7 @@ export default function LoginPage() {
         />
         <button
           className="w-full rounded bg-black p-2 text-white disabled:opacity-50"
-          onClick={handleLogin}
+          onClick={() => void handleLogin()}
           disabled={loading || !email || !password}
         >
           {loading ? 'Signing in...' : 'Sign in'}
