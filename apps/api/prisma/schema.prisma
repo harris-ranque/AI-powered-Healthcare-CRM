@@ -158,11 +158,15 @@ model Patient {
   address     String?
   notes       String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
-  @@unique([organizationId, email])
+  // Uniqueness for (organizationId, email) is enforced by a Postgres partial
+  // unique index that ignores soft-deleted rows. The index is created by hand
+  // in the migration because Prisma cannot express partial conditions.
   @@index([organizationId])
+  @@index([organizationId, deletedAt])
   @@index([organizationId, lastName, firstName])
 }
 

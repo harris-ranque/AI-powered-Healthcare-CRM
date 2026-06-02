@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -22,8 +23,10 @@ import type { AuthenticatedRequest } from '../../common/types/authenticated-requ
 import type { OrganizationContext } from '../../common/types/organization-context.type';
 
 import { CreatePatientDto } from './dto/create-patient.dto';
+import { ListPatientsDto } from './dto/list-patients.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { PatientsService } from './patients.service';
+import type { Paginated } from './types/paginated.type';
 
 @Controller('patients')
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionsGuard)
@@ -34,8 +37,9 @@ export class PatientsController {
   @RequirePermissions(Permission.PATIENT_READ)
   list(
     @CurrentOrganization() organization: OrganizationContext,
-  ): Promise<Patient[]> {
-    return this.patientsService.list(organization.organizationId);
+    @Query() query: ListPatientsDto,
+  ): Promise<Paginated<Patient>> {
+    return this.patientsService.list(organization.organizationId, query);
   }
 
   @Get(':id')

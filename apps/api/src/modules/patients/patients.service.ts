@@ -9,7 +9,9 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 
 import { CreatePatientDto } from './dto/create-patient.dto';
+import { ListPatientsDto } from './dto/list-patients.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
+import { paginate, type Paginated } from './types/paginated.type';
 
 export type PatientActor = {
   organizationId: string;
@@ -44,11 +46,39 @@ export class PatientsService {
     }
   }
 
-  list(organizationId: string): Promise<Patient[]> {
-    return this.prisma.client.patient.findMany({
-      where: { organizationId },
-      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-    });
+  async list(
+    organizationId: string,
+    query: ListPatientsDto,
+  ): Promise<Paginated<Patient>> {
+    const { page, limit, search } = query;
+    const where: Prisma.PatientWhereInput = {
+      organizationId,
+      deletedAt: null,
+      ...(search
+        ? {
+            OR: [
+              { firstName: { contains: search, mode: 'insensitive' } },
+              { lastName: { contains: search, mode: 'insensitive' } },
+              { email: { contains: search, mode: 'insensitive' } },
+              { phone: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.prisma.client.patient.findMany({
+        where,
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        skip,
+        take: limit,
+      }),
+      this.prisma.client.patient.count({ where }),
+    ]);
+
+    return paginate(data, total, page, limit);
   }
 
   getById(id: string, organizationId: string): Promise<Patient> {
@@ -86,8 +116,9 @@ export class PatientsService {
   async remove(id: string, actor: PatientActor): Promise<{ id: string }> {
     await this.findOwnedPatient(id, actor.organizationId);
 
-    const deleted = await this.prisma.client.patient.delete({
+    const deleted = await this.prisma.client.patient.update({
       where: { id },
+      data: { deletedAt: new Date() },
       select: { id: true },
     });
 
@@ -107,7 +138,7 @@ export class PatientsService {
     organizationId: string,
   ): Promise<Patient> {
     const patient = await this.prisma.client.patient.findFirst({
-      where: { id, organizationId },
+      where: { id, organizationId, deletedAt: null },
     });
 
     if (!patient) {
