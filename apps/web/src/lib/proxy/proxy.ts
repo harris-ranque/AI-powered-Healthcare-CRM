@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const protectedPrefixes = ['/dashboard'];
+const staffProtectedPrefixes = ['/dashboard', '/onboarding'];
+const portalProtectedPrefixes = ['/portal'];
 const authRoutes = ['/login', '/register'];
 
 /** Treat cookie as a session only if the JWT is present and not expired. */
@@ -31,10 +32,16 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = hasValidRefreshCookie(request);
 
-  const isProtected = protectedPrefixes.some((prefix) => pathname.startsWith(prefix));
-  const isAuthPage = authRoutes.includes(pathname);
+  const isStaffProtected = staffProtectedPrefixes.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
+  const isPortalProtected = portalProtectedPrefixes.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
+  const isAuthPage =
+    authRoutes.includes(pathname) || pathname.startsWith('/register/');
 
-  if (isProtected && !hasSession) {
+  if ((isStaffProtected || isPortalProtected) && !hasSession) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 

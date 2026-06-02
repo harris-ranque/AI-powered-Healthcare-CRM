@@ -18,6 +18,16 @@ async function bootstrap() {
 
   app.useLogger(app.get(Logger));
 
+  app.use(cookieParser());
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
+
   app.use(
     helmet({
       crossOriginEmbedderPolicy: false,
@@ -31,17 +41,8 @@ async function bootstrap() {
       },
     }),
   );
+
   app.use(compression());
-
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
-
-  app.use(cookieParser());
 
   app.enableCors({
     origin: [process.env.FRONTEND_URL],
@@ -53,7 +54,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.enableVersioning({
     type: VersioningType.URI,
-    defaultVersion: process.env.API_VERSION ?? '1',
+    defaultVersion: '1',
   });
 
   const apiVersion = process.env.API_VERSION ?? '1';

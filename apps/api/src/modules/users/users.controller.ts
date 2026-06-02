@@ -16,33 +16,30 @@ export class UsersController {
     return this.usersService.findById(req.user.sub);
   }
 
-  // =============================== ADMIN ===============================
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.CLINIC_OWNER)
   @Get('admin')
   adminRoute() {
     return {
-      message: 'Admin access granted ',
+      message: 'Admin access granted',
     };
   }
 
-  // =============================== VENDOR ===============================
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENDOR)
-  @Get('vendor')
-  vendorRoute() {
+  @Roles(Role.CLINIC_OWNER)
+  @Get('clinic-owner')
+  clinicOwnerRoute() {
     return {
-      message: 'Vendor access granted ',
+      message: 'Clinic owner access granted',
     };
   }
 
-  // =============================== CUSTOMER ===============================
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.CUSTOMER)
-  @Get('customer')
-  customerRoute() {
+  @Roles(Role.PATIENT)
+  @Get('patient')
+  patientRoute() {
     return {
-      message: 'Customer access granted ',
+      message: 'Patient access granted',
     };
   }
 }

@@ -6,6 +6,7 @@ import { PrismaService } from '../../database/prisma.service';
 
 export type AuditLogInput = {
   userId?: string;
+  organizationId?: string;
   action: string;
   resource: string;
   resourceId?: string;
@@ -20,5 +21,21 @@ export class AuditService {
 
   log(entry: AuditLogInput): Promise<AuditLog> {
     return this.prisma.client.auditLog.create({ data: entry });
+  }
+
+  list(
+    organizationId: string,
+    options: { action?: string; take?: number } = {},
+  ): Promise<AuditLog[]> {
+    const take = options.take ?? 100;
+
+    return this.prisma.client.auditLog.findMany({
+      where: {
+        organizationId,
+        ...(options.action ? { action: options.action } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+    });
   }
 }

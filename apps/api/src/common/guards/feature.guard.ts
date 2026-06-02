@@ -8,7 +8,7 @@ import { Reflector } from '@nestjs/core';
 
 import { BillingService } from '../../modules/billing/billing.service';
 import { FEATURE_KEY } from '../decorators/feature.decorator';
-import type { RequestWithTenant } from '../decorators/current-tenant.decorator';
+import type { RequestWithOrganization } from '../types/organization-context.type';
 
 @Injectable()
 export class FeatureGuard implements CanActivate {
@@ -27,11 +27,13 @@ export class FeatureGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<RequestWithTenant>();
-    const organizationId = request.tenant?.organizationId;
+    const request = context
+      .switchToHttp()
+      .getRequest<RequestWithOrganization>();
+    const organizationId = request.organization?.organizationId;
 
     if (!organizationId) {
-      throw new ForbiddenException('Tenant required');
+      throw new ForbiddenException('Organization required');
     }
 
     const allowed = await this.billing.hasFeature(organizationId, feature);

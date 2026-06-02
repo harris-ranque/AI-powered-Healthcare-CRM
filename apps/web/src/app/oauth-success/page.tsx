@@ -2,12 +2,13 @@
 
 import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuthStore } from '@/features/auth/store/auth.store';
+
+import { useCompleteAuth } from '@/features/auth/hooks/use-complete-auth';
 
 function OauthSuccessContent() {
   const router = useRouter();
   const params = useSearchParams();
-  const setAccessToken = useAuthStore((state) => state.setAccessToken);
+  const { completeAuth } = useCompleteAuth();
 
   useEffect(() => {
     const accessToken = params.get('access_token');
@@ -16,9 +17,8 @@ function OauthSuccessContent() {
       return;
     }
 
-    setAccessToken(accessToken);
-    router.push('/dashboard');
-  }, [params, router, setAccessToken]);
+    void completeAuth(accessToken);
+  }, [completeAuth, params, router]);
 
   return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
 }

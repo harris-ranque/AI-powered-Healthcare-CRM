@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
 }
 
 model User {
@@ -14,7 +14,7 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   password           String?
-  role               Role     @default(CUSTOMER)
+  role               Role     @default(PATIENT)
   hashedRefreshToken String?
   tokenVersion       Int      @default(0)
 
@@ -30,6 +30,7 @@ model User {
   auditLogs AuditLog[]
 
   organizationMemberships OrganizationMember[]
+  patientProfile          Patient?
 }
 
 model Organization {
@@ -51,6 +52,8 @@ model Organization {
 
   payments            Payment[]
   files               File[]
+  patients            Patient[]
+  auditLogs           AuditLog[]
   organizationMembers OrganizationMember[]
   apiKeys             ApiKey[]
 
@@ -66,14 +69,13 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  subscriptionPlan SubscriptionPlan @default(FREE)
 
-  subscriptionPlan SubscriptionPlan     @default(FREE)
+  memberLimit Int @default(5)
 
-  memberLimit Int  @default(5)
+  storageLimitMb Int @default(1024)
 
-  storageLimitMb Int   @default(1024)
-
-  apiLimitPerMonth Int   @default(10000)
+  apiLimitPerMonth Int @default(10000)
 }
 
 model Payment {
@@ -124,20 +126,51 @@ model Notification {
 }
 
 model AuditLog {
-  id         String   @id @default(uuid())
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id])
-  action     String
-  resource   String
-  resourceId String?
-  ipAddress  String?
-  userAgent  String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
+  id             String        @id @default(uuid())
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  action         String
+  resource       String
+  resourceId     String?
+  ipAddress      String?
+  userAgent      String?
+  metadata       Json?
+  createdAt      DateTime      @default(now())
 
   @@index([userId])
+  @@index([organizationId])
   @@index([resource, resourceId])
   @@index([createdAt])
+}
+
+model Patient {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId         String?      @unique
+  user           User?        @relation(fields: [userId], references: [id])
+
+  firstName   String
+  lastName    String
+  email       String?
+  phone       String?
+  dateOfBirth DateTime?
+  gender      String?
+  address     String?
+  notes       String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Uniqueness for (organizationId, email) is enforced by a Postgres partial
+  // unique index that ignores soft-deleted rows. The index is created by hand
+  // in the migration because Prisma cannot express partial conditions.
+  @@index([organizationId])
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, lastName, firstName])
 }
 
 model OrganizationMember {
@@ -146,10 +179,12 @@ model OrganizationMember {
   organization   Organization @relation(fields: [organizationId], references: [id])
   userId         String
   user           User         @relation(fields: [userId], references: [id])
-  role           Role         @default(STAFF)
+  role           Role         @default(DOCTOR)
+  status         MemberStatus @default(ACTIVE)
   createdAt      DateTime     @default(now())
 
   @@unique([organizationId, userId])
+  @@index([organizationId, status])
 }
 
 model ApiKey {
@@ -167,12 +202,19 @@ model ApiKey {
 }
 
 enum Role {
-  CUSTOMER
-  VENDOR
-  ADMIN
-  STAFF
+  PATIENT
+  CLINIC_OWNER
+  SUPER_ADMIN
+  DOCTOR
+  NURSE
+  RECEPTIONIST
 }
 
+enum MemberStatus {
+  PENDING
+  ACTIVE
+  DISABLED
+}
 
 enum SubscriptionPlan {
   FREE

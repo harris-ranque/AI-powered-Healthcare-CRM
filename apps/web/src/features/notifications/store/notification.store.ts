@@ -1,8 +1,5 @@
 import { create } from 'zustand';
-import type {
-  Notification,
-  NotifyInput,
-} from '../types/notification.type';
+import type { Notification, NotifyInput } from '../types/notification.type';
 
 const DEFAULT_DURATION_MS = 5000;
 

@@ -188,15 +188,12 @@ export class StripeService {
 
     if (organization) {
       await this.auditService.log({
+        organizationId: payment.organizationId,
         action: 'PAYMENT_SUCCEEDED',
-
         resource: 'PAYMENT',
-
         resourceId: payment.id,
-
         metadata: {
           amount: payment.amount,
-
           organizationId: payment.organizationId,
         },
       });
