@@ -7,18 +7,18 @@ import { OrganizationContextGuard } from '../../common/guards/organization-conte
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { AuditModule } from '../audit/audit.module';
 
-import { StorageService } from './storage.service';
-import { StorageController } from './storage.controller';
+import { PatientsController } from './patients.controller';
+import { PatientsService } from './patients.service';
 
 @Module({
   imports: [PrismaModule, JwtModule, AuditModule],
   providers: [
-    StorageService,
+    PatientsService,
     JwtAuthGuard,
     OrganizationContextGuard,
     PermissionsGuard,
   ],
-  controllers: [StorageController],
-  exports: [StorageService],
+  controllers: [PatientsController],
+  exports: [PatientsService],
 })
-export class StorageModule {}
+export class PatientsModule {}

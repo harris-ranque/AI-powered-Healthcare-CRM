@@ -12,6 +12,12 @@ import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const UPLOAD_URL_TTL_SECONDS = 60 * 5;
+const DANGEROUS_EXTENSIONS = new Set(['exe', 'bat', 'sh', 'cmd']);
+
+export type UploadActor = {
+  organizationId: string;
+  userId: string;
+};
 
 @Injectable()
 export class StorageService {
@@ -22,7 +28,7 @@ export class StorageService {
 
   async createUploadUrl(
     dto: CreateUploadUrlDto,
-    userId: string,
+    actor: UploadActor,
   ): Promise<{ uploadUrl: string; file: StoredFile }> {
     if (dto.size > MAX_FILE_SIZE_BYTES) {
       throw new BadRequestException('File too large');
@@ -32,21 +38,10 @@ export class StorageService {
       throw new BadRequestException('Invalid file type');
     }
 
-    const user = await this.prisma.client.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user || !user.organizationId) {
-      throw new BadRequestException('Organization not found');
-    }
-
     const extension = dto.fileName.split('.').pop() ?? 'bin';
-    const dangerousExtensions = ['exe', 'bat', 'sh', 'cmd'];
-
-    if (dangerousExtensions.includes(extension)) {
+    if (DANGEROUS_EXTENSIONS.has(extension)) {
       throw new BadRequestException('Invalid file type');
     }
-    const storageKey = `${user.organizationId}/${randomUUID()}.${extension}`;
 
     const bucket = process.env.R2_BUCKET_NAME;
     const publicBaseUrl = process.env.R2_PUBLIC_URL;
@@ -54,6 +49,7 @@ export class StorageService {
       throw new BadRequestException('Storage is not configured');
     }
 
+    const storageKey = `${actor.organizationId}/${randomUUID()}.${extension}`;
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: storageKey,
@@ -66,8 +62,8 @@ export class StorageService {
 
     const publicUrl = `${publicBaseUrl}/${storageKey}`;
     const file = await this.prisma.createFile({
-      organizationId: user.organizationId,
-      uploadedById: user.id,
+      organizationId: actor.organizationId,
+      uploadedById: actor.userId,
       originalName: dto.fileName,
       mimeType: dto.mimeType,
       size: dto.size,
@@ -76,17 +72,13 @@ export class StorageService {
     });
 
     await this.auditService.log({
-      userId: user.id,
-
+      userId: actor.userId,
+      organizationId: actor.organizationId,
       action: 'FILE_UPLOADED',
-
       resource: 'FILE',
-
       resourceId: file.id,
-
       metadata: {
         fileName: file.originalName,
-
         mimeType: file.mimeType,
       },
     });

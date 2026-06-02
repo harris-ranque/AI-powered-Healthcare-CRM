@@ -51,6 +51,8 @@ model Organization {
 
   payments            Payment[]
   files               File[]
+  patients            Patient[]
+  auditLogs           AuditLog[]
   organizationMembers OrganizationMember[]
   apiKeys             ApiKey[]
 
@@ -66,14 +68,13 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  subscriptionPlan SubscriptionPlan @default(FREE)
 
-  subscriptionPlan SubscriptionPlan     @default(FREE)
+  memberLimit Int @default(5)
 
-  memberLimit Int  @default(5)
+  storageLimitMb Int @default(1024)
 
-  storageLimitMb Int   @default(1024)
-
-  apiLimitPerMonth Int   @default(10000)
+  apiLimitPerMonth Int @default(10000)
 }
 
 model Payment {
@@ -124,20 +125,45 @@ model Notification {
 }
 
 model AuditLog {
-  id         String   @id @default(uuid())
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id])
-  action     String
-  resource   String
-  resourceId String?
-  ipAddress  String?
-  userAgent  String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
+  id             String        @id @default(uuid())
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  action         String
+  resource       String
+  resourceId     String?
+  ipAddress      String?
+  userAgent      String?
+  metadata       Json?
+  createdAt      DateTime      @default(now())
 
   @@index([userId])
+  @@index([organizationId])
   @@index([resource, resourceId])
   @@index([createdAt])
+}
+
+model Patient {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  firstName   String
+  lastName    String
+  email       String?
+  phone       String?
+  dateOfBirth DateTime?
+  gender      String?
+  address     String?
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([organizationId, lastName, firstName])
 }
 
 model OrganizationMember {
@@ -172,7 +198,6 @@ enum Role {
   ADMIN
   STAFF
 }
-
 
 enum SubscriptionPlan {
   FREE

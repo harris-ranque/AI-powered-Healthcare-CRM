@@ -1,4 +1,4 @@
-import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 // import { AppController } from './app.controller';
 // import { AppService } from './app.service';
@@ -7,6 +7,7 @@ import { PrismaModule } from './database/prisma.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { PatientsModule } from './modules/patients/patients.module';
 import { HealthModule } from './modules/health/health.module';
 import { StripeModule } from './modules/stripe/stripe.module';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -22,7 +23,6 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { AuditModule } from './modules/audit/audit.module';
 import { LoggerModule } from './common/logger/logger.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
-import { TenantMiddleware } from './common/middleware/tenant/tenant.middleware';
 import { BillingModule } from './modules/billing/billing.module';
 import { QueuesModule } from './modules/queues/queues.module';
 
@@ -36,6 +36,7 @@ import { QueuesModule } from './modules/queues/queues.module';
     UsersModule,
     AuthModule,
     OrganizationsModule,
+    PatientsModule,
     HealthModule,
     StripeModule,
     ThrottlerModule.forRoot([
@@ -73,8 +74,4 @@ import { QueuesModule } from './modules/queues/queues.module';
     },
   ],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantMiddleware).forRoutes('*');
-  }
-}
+export class AppModule {}

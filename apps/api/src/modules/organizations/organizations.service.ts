@@ -4,10 +4,11 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { Organization, Role as PrismaRole } from '@prisma/client';
+
 import { PrismaService } from '../../database/prisma.service';
-import { CreateOrganizationDto } from './dto/create-organization.dto';
-import { Organization } from '@prisma/client';
 import { Role } from '../../common/enums/role.enum';
+import { CreateOrganizationDto } from './dto/create-organization.dto';
 
 @Injectable()
 export class OrganizationsService {
@@ -21,9 +22,7 @@ export class OrganizationsService {
     // Check Existing Slug
     // ================================
     const existingSlug = await this.prisma.client.organization.findUnique({
-      where: {
-        slug: dto.slug,
-      },
+      where: { slug: dto.slug },
     });
 
     if (existingSlug) {
@@ -31,14 +30,12 @@ export class OrganizationsService {
     }
 
     // ==================================
-    // Check If User Already
-    // Owns Organization
+    // Check If User Already Owns
+    // Organization
     // ==================================
     const existingOrganization =
       await this.prisma.client.organization.findFirst({
-        where: {
-          ownerId: userId,
-        },
+        where: { ownerId: userId },
       });
 
     if (existingOrganization) {
@@ -46,53 +43,51 @@ export class OrganizationsService {
     }
 
     // ========================================
-    // Create Organization
+    // Create Organization + Membership + Role
     // ========================================
-    const organization = await this.prisma.client.organization.create({
-      data: {
-        name: dto.name,
-        slug: dto.slug,
-        description: dto.description,
-        ownerId: userId,
-        members: {
-          connect: {
-            id: userId,
+    return this.prisma.client.$transaction(async (tx) => {
+      const organization = await tx.organization.create({
+        data: {
+          name: dto.name,
+          slug: dto.slug,
+          description: dto.description,
+          ownerId: userId,
+          members: {
+            connect: { id: userId },
           },
         },
-      },
-      include: {
-        members: true,
-      },
-    });
+        include: { members: true },
+      });
 
-    // ========================================
-    // Update User Role
-    // ========================================
-    await this.prisma.client.user.update({
-      where: { id: userId },
-      data: {
-        role: Role.VENDOR,
-        organizationId: organization.id,
-      },
-    });
+      // Owners get an ADMIN membership so the org context guard sees them.
+      await tx.organizationMember.create({
+        data: {
+          organizationId: organization.id,
+          userId,
+          role: PrismaRole.ADMIN,
+        },
+      });
 
-    // ========================================
-    // Return Organization
-    // ========================================
-    return organization;
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          role: Role.VENDOR,
+          organizationId: organization.id,
+        },
+      });
+
+      return organization;
+    });
   }
 
   // ================================
-  // Get My Organizations
+  // Get the organization the
+  // requester owns (legacy endpoint)
   // ================================
   async getMyOrganizations(userId: string): Promise<Organization> {
     const organization = await this.prisma.client.organization.findFirst({
-      where: {
-        ownerId: userId,
-      },
-      include: {
-        members: true,
-      },
+      where: { ownerId: userId },
+      include: { members: true },
     });
 
     if (!organization) {
@@ -103,6 +98,18 @@ export class OrganizationsService {
   }
 
   // ================================
-  // Find One Organization
+  // Fetch the active organization
+  // resolved from the request
   // ================================
+  async getById(organizationId: string): Promise<Organization> {
+    const organization = await this.prisma.client.organization.findUnique({
+      where: { id: organizationId },
+    });
+
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return organization;
+  }
 }

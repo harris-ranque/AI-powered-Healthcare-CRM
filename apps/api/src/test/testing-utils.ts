@@ -2,6 +2,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { TestingModuleBuilder } from '@nestjs/testing';
 import { JwtAuthGuard } from '../common/guards/jwt-auth/jwt-auth.guard';
+import { OrganizationContextGuard } from '../common/guards/organization-context.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RolesGuard } from '../common/guards/role.guard';
 import { PrismaService } from '../database/prisma.service';
 
@@ -14,6 +16,10 @@ export function applyGuardOverrides(
 ): TestingModuleBuilder {
   return builder
     .overrideGuard(JwtAuthGuard)
+    .useValue(mockGuard)
+    .overrideGuard(OrganizationContextGuard)
+    .useValue(mockGuard)
+    .overrideGuard(PermissionsGuard)
     .useValue(mockGuard)
     .overrideGuard(RolesGuard)
     .useValue(mockGuard);
@@ -35,11 +41,22 @@ export const mockPrismaService = {
         create: jest.fn(),
         update: jest.fn(),
       },
+      organizationMember: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      },
+      patient: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
       payment: {
         findUnique: jest.fn(),
         create: jest.fn(),
       },
-      auditLog: { create: jest.fn() },
+      auditLog: { create: jest.fn(), findMany: jest.fn() },
       file: { create: jest.fn() },
       notification: {
         findMany: jest.fn(),
@@ -47,6 +64,7 @@ export const mockPrismaService = {
         count: jest.fn(),
         create: jest.fn(),
       },
+      $transaction: jest.fn(),
     },
     findPaymentByStripePaymentIntentId: jest.fn(),
     updatePaymentStatus: jest.fn(),
