@@ -2,40 +2,6 @@
 
 A multi-tenant SaaS CRM tailored for healthcare organizations. The platform combines patient/customer management, organization-level billing via Stripe (subscriptions + Connect payouts), real-time notifications, file storage on Cloudflare R2, and full observability out of the box.
 
-## Prerequisites
-
-- Node.js 20+
-- pnpm 11 (`corepack enable && corepack prepare pnpm@11.1.2 --activate`)
-- Docker + Docker Compose
-- A Stripe account (test mode is fine) — optional for non-billing flows
-- A Google OAuth client — optional for Google sign-in
-
-## Common scripts
-
-### Backend (`apps/api`)
-
-| Command            | Description                              |
-| ------------------ | ---------------------------------------- |
-| `pnpm start:dev`   | Watch-mode dev server (runs `prisma generate` first) |
-| `pnpm build`       | Production build                         |
-| `pnpm start:prod`  | Run the compiled `dist/main.js`          |
-| `pnpm db:migrate`  | Create + apply a new dev migration       |
-| `pnpm db:push`     | Push schema without creating a migration |
-| `pnpm db:studio`   | Open Prisma Studio                       |
-| `pnpm test`        | Unit tests                               |
-| `pnpm test:e2e`    | End-to-end tests                         |
-| `pnpm lint`        | ESLint with autofix                      |
-
-### Frontend (`apps/web`)
-
-| Command                       | Description                                       |
-| ----------------------------- | ------------------------------------------------- |
-| `pnpm dev`                    | Next.js dev server on `0.0.0.0:3000` (Turbopack)  |
-| `pnpm next dev --webpack -H 0.0.0.0` | Fallback dev server using webpack (lower memory) |
-| `pnpm build`                  | Production build                                  |
-| `pnpm start`                  | Serve the production build                        |
-| `pnpm lint`                   | ESLint                                            |
-
 ## Authentication flow
 
 ![Multi-persona authentication flow](docs/images/auth-flow.png)
@@ -90,6 +56,40 @@ Password-based **login** and all **register** endpoints (`/auth/register`, `/reg
 - A non-httpOnly `has_session` cookie is set alongside so the SPA can skip `/auth/refresh` calls when logged out (and avoid noisy 401s in the console).
 - The Next.js proxy (`apps/web/src/proxy.ts`) inspects the refresh JWT to gate `/dashboard` vs `/login`.
 - Failed `/auth/refresh` calls automatically clear both cookies on the server side.
+
+## Prerequisites
+
+- Node.js 20+
+- pnpm 11 (`corepack enable && corepack prepare pnpm@11.1.2 --activate`)
+- Docker + Docker Compose
+- A Stripe account (test mode is fine) — optional for non-billing flows
+- A Google OAuth client — optional for Google sign-in
+
+## Common scripts
+
+### Backend (`apps/api`)
+
+| Command            | Description                              |
+| ------------------ | ---------------------------------------- |
+| `pnpm start:dev`   | Watch-mode dev server (runs `prisma generate` first) |
+| `pnpm build`       | Production build                         |
+| `pnpm start:prod`  | Run the compiled `dist/main.js`          |
+| `pnpm db:migrate`  | Create + apply a new dev migration       |
+| `pnpm db:push`     | Push schema without creating a migration |
+| `pnpm db:studio`   | Open Prisma Studio                       |
+| `pnpm test`        | Unit tests                               |
+| `pnpm test:e2e`    | End-to-end tests                         |
+| `pnpm lint`        | ESLint with autofix                      |
+
+### Frontend (`apps/web`)
+
+| Command                       | Description                                       |
+| ----------------------------- | ------------------------------------------------- |
+| `pnpm dev`                    | Next.js dev server on `0.0.0.0:3000` (Turbopack)  |
+| `pnpm next dev --webpack -H 0.0.0.0` | Fallback dev server using webpack (lower memory) |
+| `pnpm build`                  | Production build                                  |
+| `pnpm start`                  | Serve the production build                        |
+| `pnpm lint`                   | ESLint                                            |
 
 ## Tech stack
 
