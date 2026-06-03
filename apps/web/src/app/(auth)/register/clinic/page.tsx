@@ -5,8 +5,10 @@ import { Suspense, useMemo, useState } from 'react';
 
 import { AuthDivider } from '@/features/auth/components/auth-divider';
 import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button';
+import { OtpVerificationForm } from '@/features/auth/components/otp-verification-form';
 import { RegisterClinicForm } from '@/features/auth/components/register-clinic-form';
 import { useCompleteAuth } from '@/features/auth/hooks/use-complete-auth';
+import { useOtpStep } from '@/features/auth/hooks/use-otp-step';
 import { useGoogleOnboarding } from '@/features/auth/hooks/use-google-onboarding';
 import { authApi } from '@/features/auth/api/auth.api';
 import type { RegisterClinicFormValues } from '@/features/auth/schemas/register.schema';
@@ -15,6 +17,7 @@ import { getErrorMessage } from '@/features/notifications/utils/get-error-messag
 
 function RegisterClinicContent() {
   const { completeAuth } = useCompleteAuth();
+  const { pending, isOtpStep, startOtp, clearOtp } = useOtpStep();
   const notify = useNotificationStore((state) => state.notify);
   const { googleToken, loading: onboardingLoading, error: onboardingError, prefill, isGoogleOnboarding } =
     useGoogleOnboarding();
@@ -41,8 +44,8 @@ function RegisterClinicContent() {
         ...rest,
         ...(token ? { googleToken: token } : { password }),
       });
-      notify({ type: 'success', message: 'Clinic account created' });
-      await completeAuth(data.access_token);
+      notify({ type: 'success', message: 'Check your email for a verification code' });
+      startOtp(data);
     } catch (error) {
       const message = getErrorMessage(error, 'Failed to register clinic');
       setApiError(message);
@@ -79,6 +82,14 @@ function RegisterClinicContent() {
 
         {onboardingError ? <p className="text-sm text-red-600">{onboardingError}</p> : null}
 
+        {isOtpStep && pending ? (
+          <OtpVerificationForm
+            pending={pending}
+            onVerified={completeAuth}
+            onBack={clearOtp}
+            successMessage="Clinic account created"
+          />
+        ) : (
         <RegisterClinicForm
           loading={loading}
           apiError={apiError}
@@ -88,6 +99,7 @@ function RegisterClinicContent() {
           initialValues={initialValues}
           onSubmit={handleSubmit}
         />
+        )}
 
         <p className="text-center text-sm text-zinc-600">
           <Link href="/register" className="underline">

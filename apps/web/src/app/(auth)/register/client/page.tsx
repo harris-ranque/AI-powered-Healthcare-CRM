@@ -5,8 +5,10 @@ import { Suspense, useMemo, useState } from 'react';
 
 import { AuthDivider } from '@/features/auth/components/auth-divider';
 import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button';
+import { OtpVerificationForm } from '@/features/auth/components/otp-verification-form';
 import { RegisterPatientForm } from '@/features/auth/components/register-patient-form';
 import { useCompleteAuth } from '@/features/auth/hooks/use-complete-auth';
+import { useOtpStep } from '@/features/auth/hooks/use-otp-step';
 import { useGoogleOnboarding } from '@/features/auth/hooks/use-google-onboarding';
 import { useInvitation } from '@/features/auth/hooks/use-invitation';
 import { authApi } from '@/features/auth/api/auth.api';
@@ -17,6 +19,7 @@ import { getErrorMessage } from '@/features/notifications/utils/get-error-messag
 
 function RegisterClientContent() {
   const { completeAuth } = useCompleteAuth();
+  const { pending, isOtpStep, startOtp, clearOtp } = useOtpStep();
   const notify = useNotificationStore((state) => state.notify);
   const { googleToken, loading: onboardingLoading, error: onboardingError, prefill, isGoogleOnboarding } =
     useGoogleOnboarding();
@@ -57,8 +60,8 @@ function RegisterClientContent() {
         ...(token ? { googleToken: token } : { password }),
       };
       const data = await authApi.registerPatient(payload);
-      notify({ type: 'success', message: 'Client account created' });
-      await completeAuth(data.access_token);
+      notify({ type: 'success', message: 'Check your email for a verification code' });
+      startOtp(data);
     } catch (error) {
       const message = getErrorMessage(error, 'Failed to register');
       setApiError(message);
@@ -102,6 +105,14 @@ function RegisterClientContent() {
         {onboardingError ? <p className="text-sm text-red-600">{onboardingError}</p> : null}
         {inviteError ? <p className="text-sm text-red-600">{inviteError}</p> : null}
 
+        {isOtpStep && pending ? (
+          <OtpVerificationForm
+            pending={pending}
+            onVerified={completeAuth}
+            onBack={clearOtp}
+            successMessage="Client account created"
+          />
+        ) : (
         <RegisterPatientForm
           loading={loading}
           apiError={apiError}
@@ -113,6 +124,7 @@ function RegisterClientContent() {
           initialValues={initialValues}
           onSubmit={handleSubmit}
         />
+        )}
 
         <p className="text-center text-sm text-zinc-600">
           <Link href="/register" className="underline">

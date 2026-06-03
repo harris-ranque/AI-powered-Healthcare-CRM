@@ -8,7 +8,9 @@ import { AuthDivider } from '@/features/auth/components/auth-divider';
 import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button';
 import { PersonaToggle } from '@/features/auth/components/persona-toggle';
 import { authApi } from '@/features/auth/api/auth.api';
+import { OtpVerificationForm } from '@/features/auth/components/otp-verification-form';
 import { useCompleteAuth } from '@/features/auth/hooks/use-complete-auth';
+import { useOtpStep } from '@/features/auth/hooks/use-otp-step';
 import type { AuthPersona, ProviderType } from '@/features/auth/types/persona.type';
 import { useNotificationStore } from '@/features/notifications/store/notification.store';
 import { getErrorMessage } from '@/features/notifications/utils/get-error-message';
@@ -16,6 +18,7 @@ import { getErrorMessage } from '@/features/notifications/utils/get-error-messag
 export default function LoginPageContent() {
   const params = useSearchParams();
   const { completeAuth } = useCompleteAuth();
+  const { pending, isOtpStep, startOtp, clearOtp } = useOtpStep();
   const notify = useNotificationStore((state) => state.notify);
 
   const [persona, setPersona] = useState<AuthPersona>('client');
@@ -44,8 +47,8 @@ export default function LoginPageContent() {
     try {
       setLoading(true);
       const data = await authApi.login(email, password);
-      notify({ type: 'success', message: 'Logged in successfully' });
-      await completeAuth(data.access_token);
+      notify({ type: 'success', message: 'Check your email for a verification code' });
+      startOtp(data);
     } catch (error) {
       notify({
         type: 'error',
@@ -66,6 +69,15 @@ export default function LoginPageContent() {
           </p>
         </div>
 
+        {isOtpStep && pending ? (
+          <OtpVerificationForm
+            pending={pending}
+            onVerified={completeAuth}
+            onBack={clearOtp}
+            successMessage="Signed in successfully"
+          />
+        ) : (
+          <>
         <PersonaToggle
           persona={persona}
           onPersonaChange={setPersona}
@@ -101,6 +113,8 @@ export default function LoginPageContent() {
         <AuthDivider />
 
         <GoogleSignInButton persona={persona} providerType={providerType} disabled={loading} />
+          </>
+        )}
 
         <p className="text-center text-sm text-zinc-600">
           Don&apos;t have an account?{' '}

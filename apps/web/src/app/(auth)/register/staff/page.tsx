@@ -5,8 +5,10 @@ import { Suspense, useMemo, useState } from 'react';
 
 import { AuthDivider } from '@/features/auth/components/auth-divider';
 import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button';
+import { OtpVerificationForm } from '@/features/auth/components/otp-verification-form';
 import { RegisterStaffForm } from '@/features/auth/components/register-staff-form';
 import { useCompleteAuth } from '@/features/auth/hooks/use-complete-auth';
+import { useOtpStep } from '@/features/auth/hooks/use-otp-step';
 import { useGoogleOnboarding } from '@/features/auth/hooks/use-google-onboarding';
 import { useInvitation } from '@/features/auth/hooks/use-invitation';
 import { Role } from '@/features/auth/types/role.type';
@@ -17,6 +19,7 @@ import { getErrorMessage } from '@/features/notifications/utils/get-error-messag
 
 function RegisterStaffContent() {
   const { completeAuth } = useCompleteAuth();
+  const { pending, isOtpStep, startOtp, clearOtp } = useOtpStep();
   const notify = useNotificationStore((state) => state.notify);
   const { googleToken, loading: onboardingLoading, error: onboardingError, prefill, isGoogleOnboarding } =
     useGoogleOnboarding();
@@ -59,11 +62,8 @@ function RegisterStaffContent() {
         ...(inviteToken ? { inviteToken } : {}),
         ...(token ? { googleToken: token } : { password }),
       });
-      notify({
-        type: 'success',
-        message: 'Request submitted — waiting for clinic owner approval',
-      });
-      await completeAuth(data.access_token);
+      notify({ type: 'success', message: 'Check your email for a verification code' });
+      startOtp(data);
     } catch (error) {
       const message = getErrorMessage(error, 'Failed to register staff');
       setApiError(message);
@@ -108,6 +108,14 @@ function RegisterStaffContent() {
         {onboardingError ? <p className="text-sm text-red-600">{onboardingError}</p> : null}
         {inviteError ? <p className="text-sm text-red-600">{inviteError}</p> : null}
 
+        {isOtpStep && pending ? (
+          <OtpVerificationForm
+            pending={pending}
+            onVerified={completeAuth}
+            onBack={clearOtp}
+            successMessage="Registration complete — waiting for clinic owner approval"
+          />
+        ) : (
         <RegisterStaffForm
           loading={loading}
           apiError={apiError}
@@ -120,6 +128,7 @@ function RegisterStaffContent() {
           initialValues={initialValues}
           onSubmit={handleSubmit}
         />
+        )}
 
         <p className="text-center text-sm text-zinc-600">
           <Link href="/register" className="underline">

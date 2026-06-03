@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 
 import { BullModule } from '@nestjs/bullmq';
 
-import { EmailProcessor } from './email/email.processor';
 import { PaymentProcessor } from './payment/payment.processor';
 
 @Module({
@@ -12,7 +11,7 @@ import { PaymentProcessor } from './payment/payment.processor';
     }),
   ],
 
-  providers: [EmailProcessor, PaymentProcessor],
+  providers: [PaymentProcessor],
 
   exports: [BullModule],
 })

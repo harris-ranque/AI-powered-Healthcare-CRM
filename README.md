@@ -162,6 +162,20 @@ Login and register use a **Client | Provider** toggle:
 3. **Existing user** — Google login issues tokens and redirects to `/oauth-success`.
 4. **New user** — redirected to the matching register page with `?onboarding=<token>` (email prefilled, no password). Complete clinic slug / org details, then submit.
 
+### Email OTP (password login and register)
+
+![Email OTP verification flow](docs/images/email-otp-flow.png)
+
+Password-based **login** and all **register** endpoints (`/auth/register`, `/register/clinic`, `/register/staff`, `/register/patient`) use a two-step flow:
+
+1. Submit credentials or registration form → API returns `{ otpSessionId, email, expiresIn }` (masked email) and queues a 6-digit code.
+2. Enter the code on the OTP screen → `POST /auth/otp/verify` issues tokens and sets the refresh cookie.
+
+- **Google OAuth** skips OTP (tokens issued on callback as before).
+- **Resend**: `POST /auth/otp/resend` with `{ otpSessionId }`.
+- **Real email**: set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `MAIL_FROM` in `apps/api/.env` (see `.env.example`). The BullMQ email worker sends the 6-digit code via SMTP.
+- **Without SMTP**: OTP is only logged in the API console (`OTP for user@... — configure SMTP_HOST to send real email`). Redis must be running for the queue.
+
 ### Post-auth routing
 
 - **Clinic owner** → `/dashboard/`
@@ -175,7 +189,7 @@ Login and register use a **Client | Provider** toggle:
 - **Self-serve registration** — clients and individual providers find their clinic via a searchable picker (`GET /organizations/search?q=`), which resolves the `clinicSlug` used at signup.
 - **Invitations** — clinic owners can invite staff or clients and individual providers can invite clients. A DB-backed `Invitation` row with a single-use token is created and emailed as a `?invite=<token>` register link that prefills and locks the clinic (and role for staff) at signup.
 
-Token handling:
+### Token handling
 
 - Access tokens (JWT, 15 min) are returned in the response body and held in memory by Zustand.
 - Refresh tokens (JWT, 7 days) are stored as an **httpOnly** `refresh_token` cookie set by the API.

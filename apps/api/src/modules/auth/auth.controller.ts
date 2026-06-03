@@ -16,7 +16,9 @@ import {
   AuthLogoutResponse,
   AuthService,
   AuthTokenResponse,
+  OtpPendingResponse,
 } from './auth.service';
+import { ResendOtpDto, VerifyOtpDto } from './dto/verify-otp.dto';
 import type { GoogleValidatedResult } from './types/google-oauth.types';
 import {
   decodeGoogleOAuthState,
@@ -41,45 +43,29 @@ export class AuthController {
   @Post('register')
   async register(
     @Body() registerDto: RegisterClinicDto,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthAccessTokenResponse> {
-    return this.issueTokensResponse(
-      res,
-      await this.authService.registerLegacy(registerDto),
-    );
+  ): Promise<OtpPendingResponse> {
+    return this.authService.registerLegacy(registerDto);
   }
 
   @Post('register/clinic')
   async registerClinic(
     @Body() registerDto: RegisterClinicDto,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthAccessTokenResponse> {
-    return this.issueTokensResponse(
-      res,
-      await this.authService.registerClinic(registerDto),
-    );
+  ): Promise<OtpPendingResponse> {
+    return this.authService.startRegisterClinic(registerDto);
   }
 
   @Post('register/staff')
   async registerStaff(
     @Body() registerDto: RegisterStaffDto,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthAccessTokenResponse> {
-    return this.issueTokensResponse(
-      res,
-      await this.authService.registerStaff(registerDto),
-    );
+  ): Promise<OtpPendingResponse> {
+    return this.authService.startRegisterStaff(registerDto);
   }
 
   @Post('register/patient')
   async registerPatient(
     @Body() registerDto: RegisterPatientDto,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthAccessTokenResponse> {
-    return this.issueTokensResponse(
-      res,
-      await this.authService.registerPatient(registerDto),
-    );
+  ): Promise<OtpPendingResponse> {
+    return this.authService.startRegisterPatient(registerDto);
   }
 
   // ================================
@@ -93,15 +79,36 @@ export class AuthController {
     },
   })
   @Post('login')
-  async login(
-    @Body() loginDto: LoginDto,
+  async login(@Body() loginDto: LoginDto): Promise<OtpPendingResponse> {
+    return this.authService.startLogin(loginDto);
+  }
+
+  @Throttle({
+    default: {
+      ttl: 60000,
+      limit: 10,
+    },
+  })
+  @Post('otp/verify')
+  async verifyOtp(
+    @Body() dto: VerifyOtpDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthAccessTokenResponse> {
-    const tokens = await this.authService.login(loginDto);
+    return this.issueTokensResponse(
+      res,
+      await this.authService.verifyOtp(dto.otpSessionId, dto.code),
+    );
+  }
 
-    this.setRefreshTokenCookie(res, tokens.refresh_token);
-
-    return { access_token: tokens.access_token };
+  @Throttle({
+    default: {
+      ttl: 60000,
+      limit: 5,
+    },
+  })
+  @Post('otp/resend')
+  async resendOtp(@Body() dto: ResendOtpDto): Promise<OtpPendingResponse> {
+    return this.authService.resendOtp(dto.otpSessionId);
   }
 
   // ================================

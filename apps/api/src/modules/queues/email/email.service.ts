@@ -39,6 +39,22 @@ export class EmailService {
     );
   }
 
+  async sendOtpEmail(payload: {
+    email: string;
+    code: string;
+    purpose: string;
+  }) {
+    await this.emailQueue.add('send-otp-email', payload, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 5000,
+      },
+      removeOnComplete: 100,
+      removeOnFail: 500,
+    });
+  }
+
   async sendInvitationEmail(payload: {
     email: string;
     inviteUrl: string;

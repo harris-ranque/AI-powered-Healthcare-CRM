@@ -5,6 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import type { AppConfig } from '../../config/configuration';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { OtpService } from './otp.service';
 import { EmailModule } from '../queues/email/email.module';
 import { PrismaModule } from '../../database/prisma.module';
 import { GoogleStrategy } from './strategies/google.strategy';
@@ -27,7 +28,7 @@ import { InvitationsModule } from '../invitations/invitations.module';
     }),
     forwardRef(() => AuditModule),
   ],
-  providers: [AuthService, GoogleStrategy],
+  providers: [AuthService, OtpService, GoogleStrategy],
   controllers: [AuthController],
   exports: [JwtModule],
 })

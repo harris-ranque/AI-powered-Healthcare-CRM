@@ -1,6 +1,7 @@
 import { api } from '@/lib/api/client';
 
 import type { AuthUser } from '../types/auth-user.type';
+import type { OtpPendingResponse } from '../types/otp.type';
 import type { Role } from '../types/role.type';
 
 export type RegisterClinicPayload = {
@@ -42,23 +43,36 @@ export type GoogleOnboardingResponse = {
 type AccessTokenResponse = { access_token: string };
 
 export const authApi = {
-  login: async (email: string, password: string): Promise<AccessTokenResponse> => {
-    const response = await api.post<AccessTokenResponse>('/auth/login', { email, password });
+  login: async (email: string, password: string): Promise<OtpPendingResponse> => {
+    const response = await api.post<OtpPendingResponse>('/auth/login', { email, password });
     return response.data;
   },
 
-  registerClinic: async (payload: RegisterClinicPayload): Promise<AccessTokenResponse> => {
-    const response = await api.post<AccessTokenResponse>('/auth/register/clinic', payload);
+  registerClinic: async (payload: RegisterClinicPayload): Promise<OtpPendingResponse> => {
+    const response = await api.post<OtpPendingResponse>('/auth/register/clinic', payload);
     return response.data;
   },
 
-  registerStaff: async (payload: RegisterStaffPayload): Promise<AccessTokenResponse> => {
-    const response = await api.post<AccessTokenResponse>('/auth/register/staff', payload);
+  registerStaff: async (payload: RegisterStaffPayload): Promise<OtpPendingResponse> => {
+    const response = await api.post<OtpPendingResponse>('/auth/register/staff', payload);
     return response.data;
   },
 
-  registerPatient: async (payload: RegisterPatientPayload): Promise<AccessTokenResponse> => {
-    const response = await api.post<AccessTokenResponse>('/auth/register/patient', payload);
+  registerPatient: async (payload: RegisterPatientPayload): Promise<OtpPendingResponse> => {
+    const response = await api.post<OtpPendingResponse>('/auth/register/patient', payload);
+    return response.data;
+  },
+
+  verifyOtp: async (otpSessionId: string, code: string): Promise<AccessTokenResponse> => {
+    const response = await api.post<AccessTokenResponse>('/auth/otp/verify', {
+      otpSessionId,
+      code,
+    });
+    return response.data;
+  },
+
+  resendOtp: async (otpSessionId: string): Promise<OtpPendingResponse> => {
+    const response = await api.post<OtpPendingResponse>('/auth/otp/resend', { otpSessionId });
     return response.data;
   },
 

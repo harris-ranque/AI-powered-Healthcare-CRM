@@ -3,8 +3,8 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 
 import { EmailProcessor } from './email.processor';
-
 import { EmailService } from './email.service';
+import { MailerService } from './mailer.service';
 
 @Module({
   imports: [
@@ -13,7 +13,7 @@ import { EmailService } from './email.service';
     }),
   ],
 
-  providers: [EmailProcessor, EmailService],
+  providers: [MailerService, EmailProcessor, EmailService],
 
   exports: [EmailService],
 })
