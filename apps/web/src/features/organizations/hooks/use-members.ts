@@ -12,10 +12,14 @@ export const membersQueryKeys = {
   list: (status?: MemberStatus) => [...membersQueryKeys.all, status ?? 'all'] as const,
 };
 
-export function useMembersList(status?: MemberStatus) {
+export function useMembersList(
+  status?: MemberStatus,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: membersQueryKeys.list(status),
     queryFn: () => membersApi.list(status),
+    enabled: options?.enabled ?? true,
   });
 }
 

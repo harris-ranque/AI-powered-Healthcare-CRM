@@ -22,19 +22,38 @@ import { useNotificationStore } from '@/features/notifications/store/notificatio
 import { getErrorMessage } from '@/features/notifications/utils/get-error-message';
 import { Role } from '@/features/auth/types/role.type';
 
+import { Permission, hasPermission } from '@/features/auth/utils/role-permissions';
+import { useAuth } from '@/features/auth/hooks/use-auth';
+
+import { InvitationsList } from './invitations-list';
+import { InviteDialog } from './invite-dialog';
 import {
   useMembersList,
   useUpdateMemberRole,
   useUpdateMemberStatus,
 } from '../hooks/use-members';
 
-export function MembersTable() {
+type Props = {
+  canManageMembers?: boolean;
+  canInviteClients?: boolean;
+};
+
+export function MembersTable({
+  canManageMembers: canManageMembersProp,
+  canInviteClients: canInviteClientsProp,
+}: Props) {
+  const user = useAuth().user;
+  const canManageMembers =
+    canManageMembersProp ?? hasPermission(user?.role, Permission.MEMBER_MANAGE);
+  const canInviteClients =
+    canInviteClientsProp ?? hasPermission(user?.role, Permission.CLIENT_INVITE);
   const [statusFilter, setStatusFilter] = useState<'PENDING' | 'ACTIVE' | 'DISABLED' | 'all'>(
     'PENDING',
   );
   const notify = useNotificationStore((state) => state.notify);
   const { data: members = [], isLoading, error } = useMembersList(
-    statusFilter === 'all' ? undefined : statusFilter,
+    canManageMembers ? (statusFilter === 'all' ? undefined : statusFilter) : undefined,
+    { enabled: canManageMembers },
   );
   const updateStatus = useUpdateMemberStatus();
   const updateRole = useUpdateMemberRole();
@@ -68,8 +87,15 @@ export function MembersTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">Team members</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold">
+          {canManageMembers ? 'Team members' : 'Invitations'}
+        </h1>
+        <div className="flex flex-wrap gap-2">
+          {canInviteClients ? <InviteDialog mode="client" /> : null}
+          {canManageMembers ? <InviteDialog mode="staff" /> : null}
+        </div>
+        {canManageMembers ? (
         <Select
           value={statusFilter}
           onValueChange={(value) =>
@@ -86,9 +112,12 @@ export function MembersTable() {
             <SelectItem value="all">All</SelectItem>
           </SelectContent>
         </Select>
+        ) : null}
       </div>
 
-      {isLoading ? (
+      {canInviteClients ? <InvitationsList /> : null}
+
+      {!canManageMembers ? null : isLoading ? (
         <p className="text-muted-foreground text-sm">Loading members...</p>
       ) : null}
       {error ? (
@@ -97,6 +126,7 @@ export function MembersTable() {
         </p>
       ) : null}
 
+      {!canManageMembers ? null : (
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
@@ -174,6 +204,7 @@ export function MembersTable() {
           </TableBody>
         </Table>
       </div>
+      )}
     </div>
   );
 }

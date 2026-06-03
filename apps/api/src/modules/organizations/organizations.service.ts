@@ -197,4 +197,25 @@ export class OrganizationsService {
 
     return updated;
   }
+
+  async searchPublic(
+    query: string,
+  ): Promise<{ name: string; slug: string }[]> {
+    const q = query.trim();
+    if (q.length < 2) {
+      return [];
+    }
+
+    return this.prisma.client.organization.findMany({
+      where: {
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { slug: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: { name: true, slug: true },
+      take: 10,
+      orderBy: { name: 'asc' },
+    });
+  }
 }

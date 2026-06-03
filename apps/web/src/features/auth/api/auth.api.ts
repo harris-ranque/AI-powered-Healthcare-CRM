@@ -6,7 +6,8 @@ import type { Role } from '../types/role.type';
 export type RegisterClinicPayload = {
   name: string;
   email: string;
-  password: string;
+  password?: string;
+  googleToken?: string;
   clinicName: string;
   clinicSlug: string;
 };
@@ -14,19 +15,28 @@ export type RegisterClinicPayload = {
 export type RegisterStaffPayload = {
   name: string;
   email: string;
-  password: string;
-  clinicSlug: string;
-  role: Role.DOCTOR | Role.NURSE | Role.RECEPTIONIST;
+  password?: string;
+  googleToken?: string;
+  clinicSlug?: string;
+  role?: Role.DOCTOR | Role.NURSE | Role.RECEPTIONIST;
+  inviteToken?: string;
 };
 
 export type RegisterPatientPayload = {
   firstName: string;
   lastName: string;
   email: string;
-  password: string;
-  clinicSlug: string;
+  password?: string;
+  googleToken?: string;
+  clinicSlug?: string;
   phone?: string;
   dateOfBirth?: string;
+  inviteToken?: string;
+};
+
+export type GoogleOnboardingResponse = {
+  email: string;
+  name?: string;
 };
 
 type AccessTokenResponse = { access_token: string };
@@ -52,15 +62,19 @@ export const authApi = {
     return response.data;
   },
 
-  /** @deprecated Use registerClinic */
-  register: async (email: string, password: string, name: string): Promise<AccessTokenResponse> => {
-    const response = await api.post<AccessTokenResponse>('/auth/register', {
-      email,
-      password,
-      name,
-      clinicName: `${name}'s Clinic`,
-      clinicSlug: `clinic-${Date.now()}`,
+  getGoogleOnboarding: async (token: string): Promise<GoogleOnboardingResponse> => {
+    const response = await api.get<GoogleOnboardingResponse>('/auth/google/onboarding', {
+      params: { token },
     });
+    return response.data;
+  },
+
+  lookupInvitation: async (token: string) => {
+    const response = await api.get<{
+      email: string;
+      role: string;
+      organization: { name: string; slug: string };
+    }>('/invitations/lookup', { params: { token } });
     return response.data;
   },
 

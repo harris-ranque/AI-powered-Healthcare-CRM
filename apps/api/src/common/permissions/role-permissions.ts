@@ -15,12 +15,14 @@ const DOCTOR_PERMISSIONS: Permission[] = [
   Permission.PATIENT_WRITE,
   Permission.FILE_READ,
   Permission.FILE_WRITE,
+  Permission.CLIENT_INVITE,
 ];
 
 const RECEPTIONIST_PERMISSIONS: Permission[] = [
   Permission.PATIENT_READ,
   Permission.PATIENT_WRITE,
   Permission.FILE_READ,
+  Permission.CLIENT_INVITE,
 ];
 
 const CLINIC_OWNER_PERMISSIONS: Permission[] = [
@@ -31,6 +33,7 @@ const CLINIC_OWNER_PERMISSIONS: Permission[] = [
   Permission.MEMBER_MANAGE,
   Permission.BILLING_MANAGE,
   Permission.ORG_MANAGE,
+  Permission.STAFF_INVITE,
 ];
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {

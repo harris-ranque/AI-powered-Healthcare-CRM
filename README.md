@@ -146,11 +146,34 @@ Open <http://localhost:3000/register> to create an account, or <http://localhost
 
 ![Multi-persona authentication flow](docs/images/auth-flow.png)
 
-The platform supports three signup personas (clinic owner, staff, patient) and routes each one to the right surface after auth:
+### Client vs provider portals
 
-- **Clinic owner** → `/dashboard/` (creates an organization + ACTIVE membership).
-- **Staff** (doctor / nurse / receptionist) → `/onboarding/pending/` until the owner approves them, then `/dashboard/`.
-- **Patient** → `/portal/` (no organization membership; uses patient-scoped endpoints).
+Login and register use a **Client | Provider** toggle:
+
+- **Client** — patients (`/portal/`).
+- **Provider** — **Organization** (clinic owner → `/dashboard/`) or **Individual** (staff → `/onboarding/pending/` until approved).
+
+### Google OAuth
+
+1. Set in `apps/api/.env`:
+   - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+   - `GOOGLE_CALLBACK_URL=http://localhost:3001/api/v1/auth/google/callback` (must include `/v1`)
+2. In Google Cloud Console, add the same URL under **Authorized redirect URIs**.
+3. **Existing user** — Google login issues tokens and redirects to `/oauth-success`.
+4. **New user** — redirected to the matching register page with `?onboarding=<token>` (email prefilled, no password). Complete clinic slug / org details, then submit.
+
+### Post-auth routing
+
+- **Clinic owner** → `/dashboard/`
+- **Staff** (pending) → `/onboarding/pending/`
+- **Patient** → `/portal/`
+
+## Clinic picker & invitations
+
+![Searchable clinic picker and invitation flow](docs/images/clinic-picker-invitations-flow.png)
+
+- **Self-serve registration** — clients and individual providers find their clinic via a searchable picker (`GET /organizations/search?q=`), which resolves the `clinicSlug` used at signup.
+- **Invitations** — clinic owners can invite staff or clients and individual providers can invite clients. A DB-backed `Invitation` row with a single-use token is created and emailed as a `?invite=<token>` register link that prefills and locks the clinic (and role for staff) at signup.
 
 Token handling:
 

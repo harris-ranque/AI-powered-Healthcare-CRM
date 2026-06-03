@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { Button } from '@/components/ui/button';
@@ -23,10 +23,22 @@ import {
 type Props = {
   loading?: boolean;
   apiError?: string | null;
+  googleToken?: string | null;
+  hidePassword?: boolean;
+  emailLocked?: boolean;
+  initialValues?: Partial<RegisterClinicFormValues>;
   onSubmit: (values: RegisterClinicFormValues) => void | Promise<void>;
 };
 
-export function RegisterClinicForm({ loading, apiError, onSubmit }: Props) {
+export function RegisterClinicForm({
+  loading,
+  apiError,
+  googleToken,
+  hidePassword,
+  emailLocked,
+  initialValues,
+  onSubmit,
+}: Props) {
   const form = useForm<RegisterClinicFormValues>({
     resolver: zodResolver(registerClinicSchema),
     defaultValues: {
@@ -35,21 +47,50 @@ export function RegisterClinicForm({ loading, apiError, onSubmit }: Props) {
       password: '',
       clinicName: '',
       clinicSlug: '',
+      googleToken: undefined,
+      ...initialValues,
     },
   });
 
   const clinicName = form.watch('clinicName');
+  const slugManuallyEdited = useRef(false);
 
   useEffect(() => {
-    const slug = form.getValues('clinicSlug');
-    if (!slug && clinicName) {
-      form.setValue('clinicSlug', suggestSlug(clinicName));
+    if (googleToken) {
+      form.setValue('googleToken', googleToken);
     }
+  }, [googleToken, form]);
+
+  useEffect(() => {
+    if (slugManuallyEdited.current) {
+      return;
+    }
+    form.setValue('clinicSlug', suggestSlug(clinicName), {
+      shouldValidate: true,
+    });
   }, [clinicName, form]);
+
+  useEffect(() => {
+    if (initialValues) {
+      form.reset({
+        name: initialValues.name ?? '',
+        email: initialValues.email ?? '',
+        password: '',
+        clinicName: initialValues.clinicName ?? '',
+        clinicSlug: initialValues.clinicSlug ?? '',
+        googleToken: googleToken ?? undefined,
+      });
+    }
+  }, [initialValues, googleToken, form]);
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {googleToken ? (
+          <p className="text-muted-foreground rounded-md border bg-zinc-50 px-3 py-2 text-sm">
+            Completing registration with Google
+          </p>
+        ) : null}
         <FormField
           control={form.control}
           name="name"
@@ -70,25 +111,33 @@ export function RegisterClinicForm({ loading, apiError, onSubmit }: Props) {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input type="email" autoComplete="email" {...field} />
+                <Input
+                  type="email"
+                  autoComplete="email"
+                  readOnly={emailLocked}
+                  className={emailLocked ? 'bg-muted' : undefined}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Password</FormLabel>
-              <FormControl>
-                <Input type="password" autoComplete="new-password" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {!hidePassword ? (
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                  <Input type="password" autoComplete="new-password" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : null}
         <FormField
           control={form.control}
           name="clinicName"
@@ -109,7 +158,14 @@ export function RegisterClinicForm({ loading, apiError, onSubmit }: Props) {
             <FormItem>
               <FormLabel>Clinic slug</FormLabel>
               <FormControl>
-                <Input placeholder="sunrise-medical" {...field} />
+                <Input
+                  placeholder="sunrise-medical"
+                  {...field}
+                  onChange={(event) => {
+                    slugManuallyEdited.current = true;
+                    field.onChange(event);
+                  }}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

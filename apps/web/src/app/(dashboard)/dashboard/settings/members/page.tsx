@@ -11,15 +11,18 @@ export default function MembersSettingsPage() {
   const router = useRouter();
   const user = useAuth().user;
 
+  const canManageMembers = hasPermission(user?.role, Permission.MEMBER_MANAGE);
+  const canInviteClients = hasPermission(user?.role, Permission.CLIENT_INVITE);
+
   useEffect(() => {
-    if (user && !hasPermission(user.role, Permission.MEMBER_MANAGE)) {
+    if (user && !canManageMembers && !canInviteClients) {
       router.replace('/dashboard');
     }
-  }, [router, user]);
+  }, [router, user, canManageMembers, canInviteClients]);
 
-  if (user && !hasPermission(user.role, Permission.MEMBER_MANAGE)) {
+  if (user && !canManageMembers && !canInviteClients) {
     return null;
   }
 
-  return <MembersTable />;
+  return <MembersTable canManageMembers={canManageMembers} canInviteClients={canInviteClients} />;
 }

@@ -45,7 +45,9 @@ const items: NavItem[] = [
     label: 'Members',
     href: '/dashboard/settings/members',
     icon: UserCog,
-    visible: (role) => hasPermission(role, Permission.MEMBER_MANAGE),
+    visible: (role) =>
+      hasPermission(role, Permission.MEMBER_MANAGE) ||
+      hasPermission(role, Permission.CLIENT_INVITE),
   },
   {
     label: 'Settings',

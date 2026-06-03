@@ -7,14 +7,26 @@ export type WelcomeEmailJobData = {
   name?: string;
 };
 
+export type InvitationEmailJobData = {
+  email: string;
+  inviteUrl: string;
+  organizationName: string;
+  role: string;
+};
+
 @Processor('email')
 export class EmailProcessor extends WorkerHost {
   private readonly logger = new Logger(EmailProcessor.name);
 
-  async process(job: Job<WelcomeEmailJobData>): Promise<void> {
+  async process(
+    job: Job<WelcomeEmailJobData | InvitationEmailJobData>,
+  ): Promise<void> {
     switch (job.name) {
       case 'send-welcome-email':
-        await this.handleWelcomeEmail(job.data);
+        await this.handleWelcomeEmail(job.data as WelcomeEmailJobData);
+        break;
+      case 'send-invitation-email':
+        await this.handleInvitationEmail(job.data as InvitationEmailJobData);
         break;
       default:
         this.logger.warn(`Unknown job: ${job.name}`);
@@ -28,5 +40,15 @@ export class EmailProcessor extends WorkerHost {
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     this.logger.log(`Welcome email sent to ${data.email}`);
+  }
+
+  async handleInvitationEmail(data: InvitationEmailJobData): Promise<void> {
+    this.logger.log(
+      `Sending invitation to ${data.email} for ${data.organizationName} (${data.role}): ${data.inviteUrl}`,
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    this.logger.log(`Invitation email queued for ${data.email}`);
   }
 }

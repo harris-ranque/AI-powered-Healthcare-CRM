@@ -16,8 +16,12 @@ import {
   AuthLogoutResponse,
   AuthService,
   AuthTokenResponse,
-  GoogleAuthResult,
 } from './auth.service';
+import type { GoogleValidatedResult } from './types/google-oauth.types';
+import {
+  decodeGoogleOAuthState,
+  getRegisterPathForOAuthState,
+} from './utils/google-oauth-state.util';
 import { LoginDto } from './dto/login.dto';
 import { RegisterClinicDto } from './dto/register-clinic.dto';
 import { RegisterPatientDto } from './dto/register-patient.dto';
@@ -224,18 +228,40 @@ export class AuthController {
     // Passport handles the redirect to Google's consent screen.
   }
 
+  @Get('google/onboarding')
+  async googleOnboarding(@Req() req: Request) {
+    const token = req.query.token;
+    if (typeof token !== 'string' || !token) {
+      throw new BadRequestException('token query parameter is required');
+    }
+    return this.authService.getGoogleOnboarding(token);
+  }
+
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
-  googleAuthCallback(@Req() req: Request, @Res() res: Response): void {
-    const { tokens } = req.user as GoogleAuthResult;
-
-    this.setRefreshTokenCookie(res, tokens.refresh_token);
-
+  async googleAuthCallback(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const result = req.user as GoogleValidatedResult;
     const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+
+    if (result.user) {
+      const tokens = await this.authService.completeGoogleLogin(result.user);
+      this.setRefreshTokenCookie(res, tokens.refresh_token);
+      res.redirect(
+        `${frontendUrl}/oauth-success?access_token=${encodeURIComponent(
+          tokens.access_token,
+        )}`,
+      );
+      return;
+    }
+
+    const oauthState = decodeGoogleOAuthState(req.query.state);
+    const onboardingToken = await this.authService.signGoogleOnboardingToken(
+      result.profile,
+    );
+    const registerPath = getRegisterPathForOAuthState(oauthState);
+
     res.redirect(
-      `${frontendUrl}/oauth-success?access_token=${encodeURIComponent(
-        tokens.access_token,
-      )}`,
+      `${frontendUrl}${registerPath}?onboarding=${encodeURIComponent(onboardingToken)}`,
     );
   }
 }

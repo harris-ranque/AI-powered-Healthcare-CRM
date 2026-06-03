@@ -28,6 +28,11 @@ import { OrganizationsService } from './organizations.service';
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
+  @Get('search')
+  searchOrganizations(@Query('q') q?: string) {
+    return this.organizationsService.searchPublic(q ?? '');
+  }
+
   // ================================
   // Create Organization
   // ================================
