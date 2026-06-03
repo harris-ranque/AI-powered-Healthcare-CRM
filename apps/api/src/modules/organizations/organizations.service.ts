@@ -130,10 +130,18 @@ export class OrganizationsService {
     organizationId: string,
     status?: MemberStatus,
   ): Promise<OrganizationMemberListItem[]> {
+    const organization = await this.prisma.client.organization.findUnique({
+      where: { id: organizationId },
+      select: { ownerId: true },
+    });
+
     const members = await this.prisma.client.organizationMember.findMany({
       where: {
         organizationId,
         ...(status ? { status } : {}),
+        ...(organization?.ownerId
+          ? { userId: { not: organization.ownerId } }
+          : {}),
       },
       orderBy: { createdAt: 'asc' },
       include: { user: { select: { id: true, email: true, name: true } } },
