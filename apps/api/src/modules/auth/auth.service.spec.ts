@@ -2,7 +2,12 @@ import { Test } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { EmailService } from '../queues/email/email.service';
 import { AuditService } from '../audit/audit.service';
-import { mockJwtService, mockPrismaService } from '../../test/testing-utils';
+import {
+  mockInvitationsService,
+  mockJwtService,
+  mockOtpService,
+  mockPrismaService,
+} from '../../test/testing-utils';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -15,6 +20,8 @@ describe('AuthService', () => {
         mockJwtService,
         { provide: EmailService, useValue: { sendWelcomeEmail: jest.fn() } },
         { provide: AuditService, useValue: { log: jest.fn() } },
+        mockInvitationsService,
+        mockOtpService,
       ],
     }).compile();
 

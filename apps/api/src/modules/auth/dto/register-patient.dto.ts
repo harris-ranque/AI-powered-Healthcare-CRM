@@ -5,6 +5,7 @@ import {
   IsString,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class RegisterPatientDto {
@@ -12,9 +13,14 @@ export class RegisterPatientDto {
   @IsEmail()
   email: string;
 
+  @ValidateIf((o: RegisterPatientDto) => !o.googleToken)
   @IsString()
   @MinLength(6)
-  password: string;
+  password?: string;
+
+  @IsOptional()
+  @IsString()
+  googleToken?: string;
 
   @IsString()
   @MaxLength(100)
@@ -24,9 +30,14 @@ export class RegisterPatientDto {
   @MaxLength(100)
   lastName: string;
 
+  @ValidateIf((o: RegisterPatientDto) => !o.inviteToken)
   @IsString()
   @MinLength(3)
-  clinicSlug: string;
+  clinicSlug?: string;
+
+  @IsOptional()
+  @IsString()
+  inviteToken?: string;
 
   @IsOptional()
   @IsString()

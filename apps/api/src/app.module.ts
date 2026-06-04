@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { resolve } from 'node:path';
 // import { AppController } from './app.controller';
 // import { AppService } from './app.service';
 import configuration from './config/configuration';
+import { envValidationSchema } from './config/env.validation';
 import { PrismaModule } from './database/prisma.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -25,24 +27,36 @@ import { LoggerModule } from './common/logger/logger.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { QueuesModule } from './modules/queues/queues.module';
+import { InvitationsModule } from './modules/invitations/invitations.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
+      validationSchema: envValidationSchema,
+      validationOptions: { allowUnknown: true, abortEarly: false },
+      // Load from cwd (apps/api when running pnpm start:dev) first, then fall
+      // back to paths relative to the compiled output so it works from root too.
+      envFilePath: [
+        '.env',
+        resolve(process.cwd(), 'apps/api/.env'),
+        resolve(__dirname, '..', '.env'),
+        resolve(__dirname, '..', '..', '.env'),
+      ],
     }),
     PrismaModule,
     UsersModule,
     AuthModule,
     OrganizationsModule,
+    InvitationsModule,
     PatientsModule,
     HealthModule,
     StripeModule,
     ThrottlerModule.forRoot([
       {
-        ttl: 10000,
-        limit: 5,
+        ttl: 60000,
+        limit: 100,
       },
     ]),
     BullModule.forRoot({

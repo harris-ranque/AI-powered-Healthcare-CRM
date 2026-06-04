@@ -9,6 +9,11 @@ import { AuthService } from '../modules/auth/auth.service';
 import { PrismaService } from '../database/prisma.service';
 import { EmailService } from '../modules/queues/email/email.service';
 import { AuditService } from '../modules/audit/audit.service';
+import {
+  mockInvitationsService,
+  mockJwtService,
+  mockOtpService,
+} from './testing-utils';
 
 jest.mock('../common/security/login-rate-limit', () => ({
   getLoginRateLimiter: (): { consume: jest.Mock } => ({
@@ -42,6 +47,9 @@ describe('Auth Integration', () => {
         },
         { provide: EmailService, useValue: {} },
         { provide: AuditService, useValue: { log: jest.fn() } },
+        mockInvitationsService,
+        mockOtpService,
+        mockJwtService,
       ],
     }).compile();
 

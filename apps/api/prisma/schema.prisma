@@ -31,6 +31,7 @@ model User {
 
   organizationMemberships OrganizationMember[]
   patientProfile          Patient?
+  sentInvitations         Invitation[]         @relation("InvitationInviter")
 }
 
 model Organization {
@@ -55,6 +56,7 @@ model Organization {
   patients            Patient[]
   auditLogs           AuditLog[]
   organizationMembers OrganizationMember[]
+  invitations         Invitation[]
   apiKeys             ApiKey[]
 
   // =========================
@@ -214,6 +216,31 @@ enum MemberStatus {
   PENDING
   ACTIVE
   DISABLED
+}
+
+model Invitation {
+  id             String           @id @default(uuid())
+  email          String
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  role           Role
+  token          String           @unique
+  invitedByUserId String
+  invitedBy      User             @relation("InvitationInviter", fields: [invitedByUserId], references: [id])
+  status         InvitationStatus @default(PENDING)
+  expiresAt      DateTime
+  createdAt      DateTime         @default(now())
+  acceptedAt     DateTime?
+
+  @@index([organizationId, status])
+  @@index([email, organizationId])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
 }
 
 enum SubscriptionPlan {

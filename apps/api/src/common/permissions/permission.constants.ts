@@ -19,6 +19,9 @@ export const Permission = {
   MEMBER_MANAGE: 'member:manage',
   BILLING_MANAGE: 'billing:manage',
   ORG_MANAGE: 'org:manage',
+
+  CLIENT_INVITE: 'client:invite',
+  STAFF_INVITE: 'staff:invite',
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];

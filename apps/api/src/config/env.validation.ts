@@ -17,6 +17,16 @@ export const envValidationSchema = Joi.object({
 
   API_VERSION: Joi.string().pattern(/^\d+$/).default('1'),
 
+  GOOGLE_CLIENT_ID: Joi.string().allow('').optional(),
+  GOOGLE_CLIENT_SECRET: Joi.string().allow('').optional(),
+  GOOGLE_CALLBACK_URL: Joi.string().optional(),
+
+  SMTP_HOST: Joi.string().allow('').optional(),
+  SMTP_PORT: Joi.number().optional(),
+  SMTP_USER: Joi.string().allow('').optional(),
+  SMTP_PASS: Joi.string().allow('').optional(),
+  MAIL_FROM: Joi.string().allow('').optional(),
+
   LOG_LEVEL: Joi.string()
     .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')
     .optional(),

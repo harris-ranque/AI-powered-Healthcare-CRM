@@ -31,8 +31,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
     try {
       const data = await authApi.refresh();
+      // Set the token first so the request interceptor attaches it to /auth/me.
+      set({ accessToken: data.access_token });
       const me = await authApi.getMe();
-      set({ accessToken: data.access_token, user: me, isInitialized: true });
+      set({ user: me, isInitialized: true });
     } catch {
       set({ accessToken: null, user: null, isInitialized: true });
     }

@@ -2,6 +2,122 @@
 
 A multi-tenant SaaS CRM tailored for healthcare organizations. The platform combines patient/customer management, organization-level billing via Stripe (subscriptions + Connect payouts), real-time notifications, file storage on Cloudflare R2, and full observability out of the box.
 
+## Authentication flow
+
+![Multi-persona authentication flow](docs/images/auth-flow.png)
+
+### Client vs provider portals
+
+Login and register use a **Client | Provider** toggle:
+
+- **Client** — patients (`/portal/`).
+- **Provider** — **Organization** (multi-provider clinic owner → `/dashboard/`) or **Individual** (solo practice owner → `/dashboard/`).
+- **Employed staff** — join only via email invite (`/register/staff?invite=...` → `/dashboard/` when active).
+
+### Google OAuth
+
+1. Set in `apps/api/.env`:
+   - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+   - `GOOGLE_CALLBACK_URL=http://localhost:3001/api/v1/auth/google/callback` (must include `/v1`)
+2. In Google Cloud Console, add the same URL under **Authorized redirect URIs**.
+3. **Existing user** — Google login issues tokens and redirects to `/oauth-success`.
+4. **New user** — redirected to the matching register page with `?onboarding=<token>` (email prefilled, no password). Complete clinic slug / org details, then submit.
+
+### Email OTP (password login and register)
+
+![Email OTP verification flow](docs/images/email-otp-flow.png)
+
+Password-based **login** and all **register** endpoints (`/auth/register`, `/register/clinic`, `/register/solo`, `/register/staff`, `/register/patient`) use a two-step flow:
+
+1. Submit credentials or registration form → API returns `{ otpSessionId, email, expiresIn }` (masked email) and queues a 6-digit code.
+2. Enter the code on the OTP screen → `POST /auth/otp/verify` issues tokens and sets the refresh cookie.
+
+- **Google OAuth** skips OTP (tokens issued on callback as before).
+- **Resend**: `POST /auth/otp/resend` with `{ otpSessionId }`.
+- **Real email**: set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `MAIL_FROM` in `apps/api/.env` (see `.env.example`). The BullMQ email worker sends the 6-digit code via SMTP.
+- **Without SMTP**: OTP is only logged in the API console (`OTP for user@... — configure SMTP_HOST to send real email`). Redis must be running for the queue.
+
+### Post-auth routing
+
+- **Clinic owner / solo practice owner** → `/dashboard/`
+- **Invited staff** (active membership) → `/dashboard/`
+- **Patient** → `/portal/`
+
+## Clinic picker & invitations
+
+![Searchable clinic picker and invitation flow](docs/images/clinic-picker-invitations-flow.png)
+
+### Registration paths
+
+| Persona | Route | Creates |
+|--------|-------|---------|
+| Patient (self-serve) | `/register/client` + clinic search | `User` + `Patient` record |
+| Patient (invited) | `/register/client?invite=` | Same, org/role from token |
+| Clinic owner | `/register/clinic` | New `Organization`, owner is `CLINIC_OWNER` **ACTIVE** |
+| Solo individual provider | `/register/solo` | New `Organization` (auto practice name/slug), owner is `CLINIC_OWNER` **ACTIVE** |
+| Employed staff | `/register/staff?invite=` only | `OrganizationMember` **ACTIVE** (invite = approval) |
+
+### Who can invite whom
+
+| Inviter | Invite client (`PATIENT`) | Invite staff (`DOCTOR` / `NURSE` / `RECEPTIONIST`) |
+|---------|---------------------------|-----------------------------------------------------|
+| Clinic owner | Yes | Yes |
+| Solo practice owner | Yes | Yes |
+| Active doctor / nurse / receptionist | Yes | Yes (configurable; owners-only is stricter HIPAA policy) |
+
+### Invitation API & UI
+
+- **Create** — `POST /invitations` with `{ email, role }` (permission-checked: `CLIENT_INVITE` or `STAFF_INVITE`).
+- **List / revoke** — `GET /invitations`, `PATCH /invitations/:id/revoke` (requires either invite permission). Optional `?inviteeType=client|staff` filter.
+- **Email** — single-use token, 7-day expiry; links to `/register/client?invite=` or `/register/staff?invite=`.
+- **UI** — **Invite client** on Patients page; **Invite staff** on Members page; pending lists filtered by type.
+
+### Self-serve clinic search (patients)
+
+Clients without an invite can find their clinic via searchable picker (`GET /organizations/search?q=`) and register with the resolved `clinicSlug`.
+
+### Token handling
+
+- Access tokens (JWT, 15 min) are returned in the response body and held in memory by Zustand.
+- Refresh tokens (JWT, 7 days) are stored as an **httpOnly** `refresh_token` cookie set by the API.
+- A non-httpOnly `has_session` cookie is set alongside so the SPA can skip `/auth/refresh` calls when logged out (and avoid noisy 401s in the console).
+- The Next.js proxy (`apps/web/src/proxy.ts`) inspects the refresh JWT to gate `/dashboard` vs `/login`.
+- Failed `/auth/refresh` calls automatically clear both cookies on the server side.
+
+## Prerequisites
+
+- Node.js 20+
+- pnpm 11 (`corepack enable && corepack prepare pnpm@11.1.2 --activate`)
+- Docker + Docker Compose
+- A Stripe account (test mode is fine) — optional for non-billing flows
+- A Google OAuth client — optional for Google sign-in
+
+## Common scripts
+
+### Backend (`apps/api`)
+
+| Command            | Description                              |
+| ------------------ | ---------------------------------------- |
+| `pnpm start:dev`   | Watch-mode dev server (runs `prisma generate` first) |
+| `pnpm build`       | Production build                         |
+| `pnpm start:prod`  | Run the compiled `dist/main.js`          |
+| `pnpm db:migrate`  | Create + apply a new dev migration       |
+| `pnpm db:push`     | Push schema without creating a migration |
+| `pnpm db:studio`   | Open Prisma Studio                       |
+| `pnpm test`        | Unit tests                               |
+| `pnpm test:e2e`    | End-to-end tests                         |
+| `pnpm lint`        | ESLint with autofix                      |
+
+### Frontend (`apps/web`)
+
+| Command                       | Description                                       |
+| ----------------------------- | ------------------------------------------------- |
+| `pnpm dev`                    | Next.js dev server on `0.0.0.0:3000` (Turbopack)  |
+| `pnpm next dev --webpack -H 0.0.0.0` | Fallback dev server using webpack (lower memory) |
+| `pnpm build`                  | Production build                                  |
+| `pnpm start`                  | Serve the production build                        |
+| `pnpm lint`                   | ESLint                                            |
+
 ## Tech stack
 
 **Frontend** — `apps/web`
@@ -51,14 +167,6 @@ A multi-tenant SaaS CRM tailored for healthcare organizations. The platform comb
 ├── docker-compose.yml  # Full-stack production compose (nginx + web + api + deps)
 └── turbo.json
 ```
-
-## Prerequisites
-
-- Node.js 20+
-- pnpm 11 (`corepack enable && corepack prepare pnpm@11.1.2 --activate`)
-- Docker + Docker Compose
-- A Stripe account (test mode is fine) — optional for non-billing flows
-- A Google OAuth client — optional for Google sign-in
 
 ## Local development
 
@@ -115,50 +223,6 @@ cd apps/web && pnpm dev
 ```
 
 Open <http://localhost:3000/register> to create an account, or <http://localhost:3000/login> to sign in.
-
-## Common scripts
-
-### Backend (`apps/api`)
-
-| Command            | Description                              |
-| ------------------ | ---------------------------------------- |
-| `pnpm start:dev`   | Watch-mode dev server (runs `prisma generate` first) |
-| `pnpm build`       | Production build                         |
-| `pnpm start:prod`  | Run the compiled `dist/main.js`          |
-| `pnpm db:migrate`  | Create + apply a new dev migration       |
-| `pnpm db:push`     | Push schema without creating a migration |
-| `pnpm db:studio`   | Open Prisma Studio                       |
-| `pnpm test`        | Unit tests                               |
-| `pnpm test:e2e`    | End-to-end tests                         |
-| `pnpm lint`        | ESLint with autofix                      |
-
-### Frontend (`apps/web`)
-
-| Command                       | Description                                       |
-| ----------------------------- | ------------------------------------------------- |
-| `pnpm dev`                    | Next.js dev server on `0.0.0.0:3000` (Turbopack)  |
-| `pnpm next dev --webpack -H 0.0.0.0` | Fallback dev server using webpack (lower memory) |
-| `pnpm build`                  | Production build                                  |
-| `pnpm start`                  | Serve the production build                        |
-| `pnpm lint`                   | ESLint                                            |
-
-## Authentication flow
-
-![Multi-persona authentication flow](docs/images/auth-flow.png)
-
-The platform supports three signup personas (clinic owner, staff, patient) and routes each one to the right surface after auth:
-
-- **Clinic owner** → `/dashboard/` (creates an organization + ACTIVE membership).
-- **Staff** (doctor / nurse / receptionist) → `/onboarding/pending/` until the owner approves them, then `/dashboard/`.
-- **Patient** → `/portal/` (no organization membership; uses patient-scoped endpoints).
-
-Token handling:
-
-- Access tokens (JWT, 15 min) are returned in the response body and held in memory by Zustand.
-- Refresh tokens (JWT, 7 days) are stored as an **httpOnly** `refresh_token` cookie set by the API.
-- A non-httpOnly `has_session` cookie is set alongside so the SPA can skip `/auth/refresh` calls when logged out (and avoid noisy 401s in the console).
-- The Next.js proxy (`apps/web/src/proxy.ts`) inspects the refresh JWT to gate `/dashboard` vs `/login`.
-- Failed `/auth/refresh` calls automatically clear both cookies on the server side.
 
 ## Production (full stack)
 

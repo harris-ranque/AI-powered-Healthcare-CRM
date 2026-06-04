@@ -130,10 +130,18 @@ export class OrganizationsService {
     organizationId: string,
     status?: MemberStatus,
   ): Promise<OrganizationMemberListItem[]> {
+    const organization = await this.prisma.client.organization.findUnique({
+      where: { id: organizationId },
+      select: { ownerId: true },
+    });
+
     const members = await this.prisma.client.organizationMember.findMany({
       where: {
         organizationId,
         ...(status ? { status } : {}),
+        ...(organization?.ownerId
+          ? { userId: { not: organization.ownerId } }
+          : {}),
       },
       orderBy: { createdAt: 'asc' },
       include: { user: { select: { id: true, email: true, name: true } } },
@@ -196,5 +204,26 @@ export class OrganizationsService {
     });
 
     return updated;
+  }
+
+  async searchPublic(
+    query: string,
+  ): Promise<{ name: string; slug: string }[]> {
+    const q = query.trim();
+    if (q.length < 2) {
+      return [];
+    }
+
+    return this.prisma.client.organization.findMany({
+      where: {
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { slug: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: { name: true, slug: true },
+      take: 10,
+      orderBy: { name: 'asc' },
+    });
   }
 }

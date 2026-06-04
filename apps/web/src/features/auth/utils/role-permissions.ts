@@ -11,6 +11,8 @@ export const Permission = {
   MEMBER_MANAGE: 'member:manage',
   BILLING_MANAGE: 'billing:manage',
   ORG_MANAGE: 'org:manage',
+  CLIENT_INVITE: 'client:invite',
+  STAFF_INVITE: 'staff:invite',
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
@@ -20,12 +22,16 @@ const DOCTOR_PERMISSIONS: Permission[] = [
   Permission.PATIENT_WRITE,
   Permission.FILE_READ,
   Permission.FILE_WRITE,
+  Permission.CLIENT_INVITE,
+  Permission.STAFF_INVITE,
 ];
 
 const RECEPTIONIST_PERMISSIONS: Permission[] = [
   Permission.PATIENT_READ,
   Permission.PATIENT_WRITE,
   Permission.FILE_READ,
+  Permission.CLIENT_INVITE,
+  Permission.STAFF_INVITE,
 ];
 
 const CLINIC_OWNER_PERMISSIONS: Permission[] = [

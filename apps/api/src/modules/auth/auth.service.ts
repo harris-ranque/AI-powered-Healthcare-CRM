@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -15,11 +16,29 @@ import { PrismaService } from '../../database/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterClinicDto } from './dto/register-clinic.dto';
 import { RegisterPatientDto } from './dto/register-patient.dto';
+import { RegisterSoloDto } from './dto/register-solo.dto';
 import { RegisterStaffDto } from './dto/register-staff.dto';
+import { suggestSlug } from '../../common/utils/suggest-slug';
 import { JwtPayload } from './types/jwt-payload.type';
 import { getLoginRateLimiter } from '../../common/security/login-rate-limit';
 import { EmailService } from '../queues/email/email.service';
 import { AuditService } from '../audit/audit.service';
+import { InvitationsService } from '../invitations/invitations.service';
+import { OtpService } from './otp.service';
+import type { OtpPendingResponse } from './types/otp.types';
+
+export type { OtpPendingResponse } from './types/otp.types';
+
+type ResolvedRegistration = {
+  email: string;
+  googleId: string | undefined;
+  passwordHash: string | null;
+};
+
+type RegisterChallengePayload = {
+  resolved: ResolvedRegistration;
+  dto: RegisterClinicDto | RegisterStaffDto | RegisterPatientDto | RegisterSoloDto;
+};
 
 export type AuthTokenResponse = {
   access_token: string;
@@ -40,16 +59,11 @@ export type AuthMeResponse = {
   memberStatus?: MemberStatus;
 };
 
-export type GoogleProfileInput = {
-  googleId: string;
-  email: string;
-  name?: string;
-};
-
-export type GoogleAuthResult = {
-  user: User;
-  tokens: AuthTokenResponse;
-};
+import type {
+  GoogleOnboardingPayload,
+  GoogleOnboardingResponse,
+  GoogleProfileInput,
+} from './types/google-oauth.types';
 
 @Injectable()
 export class AuthService {
@@ -58,14 +72,209 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private emailService: EmailService,
     private auditService: AuditService,
+    private invitationsService: InvitationsService,
+    private otpService: OtpService,
   ) {}
+
+  // ================================
+  // OTP — login / register start
+  // ================================
+  async startLogin(loginDto: LoginDto): Promise<OtpPendingResponse> {
+    try {
+      await getLoginRateLimiter().consume(loginDto.email);
+    } catch {
+      throw new UnauthorizedException('Too many login attempts');
+    }
+
+    const user = await this.prisma.client.user.findUnique({
+      where: { email: loginDto.email },
+    });
+
+    if (!user || !user.password) {
+      await this.auditService.log({
+        action: 'LOGIN_FAILED',
+        resource: 'AUTH',
+        metadata: { email: loginDto.email },
+      });
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const passwordMatches = await bcrypt.compare(
+      loginDto.password,
+      user.password,
+    );
+
+    if (!passwordMatches) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    return this.otpService.createChallenge({
+      purpose: 'LOGIN',
+      email: user.email,
+      userId: user.id,
+    });
+  }
+
+  async startRegisterClinic(
+    registerDto: RegisterClinicDto,
+  ): Promise<OtpPendingResponse> {
+    const payload = await this.prepareRegisterClinic(registerDto);
+    return this.otpService.createChallenge({
+      purpose: 'REGISTER_CLINIC',
+      email: payload.resolved.email,
+      payload,
+    });
+  }
+
+  async startRegisterStaff(
+    registerDto: RegisterStaffDto,
+  ): Promise<OtpPendingResponse> {
+    const payload = await this.prepareRegisterStaff(registerDto);
+    return this.otpService.createChallenge({
+      purpose: 'REGISTER_STAFF',
+      email: payload.resolved.email,
+      payload,
+    });
+  }
+
+  async startRegisterPatient(
+    registerDto: RegisterPatientDto,
+  ): Promise<OtpPendingResponse> {
+    const payload = await this.prepareRegisterPatient(registerDto);
+    return this.otpService.createChallenge({
+      purpose: 'REGISTER_PATIENT',
+      email: payload.resolved.email,
+      payload,
+    });
+  }
+
+  async startRegisterSolo(
+    registerDto: RegisterSoloDto,
+  ): Promise<OtpPendingResponse> {
+    const payload = await this.prepareRegisterSolo(registerDto);
+    return this.otpService.createChallenge({
+      purpose: 'REGISTER_SOLO',
+      email: payload.resolved.email,
+      payload,
+    });
+  }
+
+  async verifyOtp(
+    otpSessionId: string,
+    code: string,
+  ): Promise<AuthTokenResponse> {
+    const challenge = await this.otpService.verifyCode(otpSessionId, code);
+
+    if (challenge.purpose === 'LOGIN') {
+      if (!challenge.userId) {
+        throw new BadRequestException('Invalid login verification session');
+      }
+      const user = await this.prisma.client.user.findUnique({
+        where: { id: challenge.userId },
+      });
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+      const tokens = await this.generateToken(user.id, user.email, user.role);
+      await this.updateRefreshToken(user.id, tokens.refresh_token);
+      await this.auditService.log({
+        userId: user.id,
+        action: 'LOGIN_SUCCESS',
+        resource: 'AUTH',
+        metadata: { email: user.email },
+      });
+      return tokens;
+    }
+
+    const payload = challenge.payload as RegisterChallengePayload | undefined;
+    if (!payload) {
+      throw new BadRequestException(
+        'Invalid registration verification session',
+      );
+    }
+
+    switch (challenge.purpose) {
+      case 'REGISTER_CLINIC':
+        return this.executeRegisterClinic(
+          payload.dto as RegisterClinicDto,
+          payload.resolved,
+        );
+      case 'REGISTER_STAFF':
+        return this.executeRegisterStaff(
+          payload.dto as RegisterStaffDto,
+          payload.resolved,
+        );
+      case 'REGISTER_PATIENT':
+        return this.executeRegisterPatient(
+          payload.dto as RegisterPatientDto,
+          payload.resolved,
+        );
+      case 'REGISTER_SOLO':
+        return this.executeRegisterClinic(
+          payload.dto as RegisterClinicDto,
+          payload.resolved,
+        );
+      default:
+        throw new BadRequestException('Unknown verification purpose');
+    }
+  }
+
+  async resendOtp(otpSessionId: string): Promise<OtpPendingResponse> {
+    return this.otpService.resend(otpSessionId);
+  }
+
+  async registerLegacy(
+    registerDto: RegisterClinicDto,
+  ): Promise<OtpPendingResponse> {
+    return this.startRegisterClinic(registerDto);
+  }
+
+  // ================================
+  // Register solo practice (individual provider owns org)
+  // ================================
+  private async prepareRegisterSolo(
+    registerDto: RegisterSoloDto,
+  ): Promise<RegisterChallengePayload> {
+    const clinicName =
+      registerDto.practiceName?.trim() ||
+      `${registerDto.name.trim()} Practice`;
+    let clinicSlug = suggestSlug(clinicName);
+    if (!clinicSlug) {
+      clinicSlug = suggestSlug(registerDto.name) || 'solo-practice';
+    }
+
+    let suffix = 0;
+    while (true) {
+      const candidate = suffix === 0 ? clinicSlug : `${clinicSlug}-${suffix}`;
+      const existing = await this.prisma.client.organization.findUnique({
+        where: { slug: candidate },
+      });
+      if (!existing) {
+        clinicSlug = candidate;
+        break;
+      }
+      suffix += 1;
+    }
+
+    const clinicDto: RegisterClinicDto = {
+      email: registerDto.email,
+      name: registerDto.name,
+      password: registerDto.password,
+      googleToken: registerDto.googleToken,
+      clinicName,
+      clinicSlug,
+    };
+
+    const prepared = await this.prepareRegisterClinic(clinicDto);
+    return { dto: clinicDto, resolved: prepared.resolved };
+  }
 
   // ================================
   // Register clinic owner
   // ================================
-  async registerClinic(
+  private async prepareRegisterClinic(
     registerDto: RegisterClinicDto,
-  ): Promise<AuthTokenResponse> {
+  ): Promise<RegisterChallengePayload> {
     const existingUser = await this.prisma.client.user.findUnique({
       where: { email: registerDto.email },
     });
@@ -74,7 +283,12 @@ export class AuthService {
       throw new ConflictException('User already exists');
     }
 
-    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+    const resolved = await this.resolveGoogleRegistration(
+      registerDto.email,
+      registerDto.password,
+      registerDto.googleToken,
+    );
+
     const existingSlug = await this.prisma.client.organization.findUnique({
       where: { slug: registerDto.clinicSlug },
     });
@@ -82,11 +296,19 @@ export class AuthService {
       throw new ConflictException('Clinic slug already exists');
     }
 
+    return { dto: registerDto, resolved };
+  }
+
+  private async executeRegisterClinic(
+    registerDto: RegisterClinicDto,
+    resolved: ResolvedRegistration,
+  ): Promise<AuthTokenResponse> {
     const user = await this.prisma.client.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
         data: {
-          email: registerDto.email,
-          password: hashedPassword,
+          email: resolved.email,
+          password: resolved.passwordHash,
+          googleId: resolved.googleId,
           name: registerDto.name,
           role: Role.CLINIC_OWNER,
         },
@@ -127,7 +349,9 @@ export class AuthService {
     return tokens;
   }
 
-  async registerStaff(registerDto: RegisterStaffDto): Promise<AuthTokenResponse> {
+  private async prepareRegisterStaff(
+    registerDto: RegisterStaffDto,
+  ): Promise<RegisterChallengePayload> {
     const existingUser = await this.prisma.client.user.findUnique({
       where: { email: registerDto.email },
     });
@@ -136,32 +360,95 @@ export class AuthService {
       throw new ConflictException('User already exists');
     }
 
-    const organization = await this.prisma.client.organization.findUnique({
-      where: { slug: registerDto.clinicSlug },
-      select: { id: true, name: true, owner: { select: { email: true } } },
-    });
-    if (!organization) {
-      throw new NotFoundException('Clinic not found');
+    const resolved = await this.resolveGoogleRegistration(
+      registerDto.email,
+      registerDto.password,
+      registerDto.googleToken,
+    );
+
+    if (!registerDto.inviteToken) {
+      if (!registerDto.clinicSlug || !registerDto.role) {
+        throw new BadRequestException('Clinic and role are required');
+      }
+      const organization = await this.prisma.client.organization.findUnique({
+        where: { slug: registerDto.clinicSlug },
+        select: { id: true },
+      });
+      if (!organization) {
+        throw new NotFoundException('Clinic not found');
+      }
+    } else {
+      await this.invitationsService.getByToken(registerDto.inviteToken);
     }
 
-    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+    return { dto: registerDto, resolved };
+  }
+
+  private async executeRegisterStaff(
+    registerDto: RegisterStaffDto,
+    resolved: ResolvedRegistration,
+  ): Promise<AuthTokenResponse> {
     const user = await this.prisma.client.$transaction(async (tx) => {
+      let organizationId: string;
+      let memberRole: Role;
+
+      if (registerDto.inviteToken) {
+        const consumed = await this.invitationsService.consume(
+          registerDto.inviteToken,
+          registerDto.email,
+          tx,
+        );
+        if (
+          consumed.role !== Role.DOCTOR &&
+          consumed.role !== Role.NURSE &&
+          consumed.role !== Role.RECEPTIONIST
+        ) {
+          throw new BadRequestException('Invalid staff invitation');
+        }
+        if (
+          registerDto.clinicSlug &&
+          registerDto.clinicSlug !== consumed.clinicSlug
+        ) {
+          throw new BadRequestException('Clinic does not match invitation');
+        }
+        organizationId = consumed.organizationId;
+        memberRole = consumed.role;
+      } else {
+        if (!registerDto.clinicSlug || !registerDto.role) {
+          throw new BadRequestException('Clinic and role are required');
+        }
+        const organization = await tx.organization.findUnique({
+          where: { slug: registerDto.clinicSlug },
+          select: { id: true },
+        });
+        if (!organization) {
+          throw new NotFoundException('Clinic not found');
+        }
+        organizationId = organization.id;
+        memberRole = registerDto.role;
+      }
+
       const createdUser = await tx.user.create({
         data: {
-          email: registerDto.email,
-          password: hashedPassword,
+          email: resolved.email,
+          password: resolved.passwordHash,
+          googleId: resolved.googleId,
           name: registerDto.name,
-          role: registerDto.role,
-          organizationId: organization.id,
+          role: memberRole,
+          organizationId,
         },
       });
 
+      const memberStatus = registerDto.inviteToken
+        ? MemberStatus.ACTIVE
+        : MemberStatus.PENDING;
+
       await tx.organizationMember.create({
         data: {
-          organizationId: organization.id,
+          organizationId,
           userId: createdUser.id,
-          role: registerDto.role,
-          status: MemberStatus.PENDING,
+          role: memberRole,
+          status: memberStatus,
         },
       });
 
@@ -174,9 +461,9 @@ export class AuthService {
     return tokens;
   }
 
-  async registerPatient(
+  private async prepareRegisterPatient(
     registerDto: RegisterPatientDto,
-  ): Promise<AuthTokenResponse> {
+  ): Promise<RegisterChallengePayload> {
     const existingUser = await this.prisma.client.user.findUnique({
       where: { email: registerDto.email },
     });
@@ -185,29 +472,81 @@ export class AuthService {
       throw new ConflictException('User already exists');
     }
 
-    const organization = await this.prisma.client.organization.findUnique({
-      where: { slug: registerDto.clinicSlug },
-      select: { id: true },
-    });
-    if (!organization) {
-      throw new NotFoundException('Clinic not found');
+    const resolved = await this.resolveGoogleRegistration(
+      registerDto.email,
+      registerDto.password,
+      registerDto.googleToken,
+    );
+
+    if (!registerDto.inviteToken) {
+      if (!registerDto.clinicSlug) {
+        throw new BadRequestException('Clinic is required');
+      }
+      const organization = await this.prisma.client.organization.findUnique({
+        where: { slug: registerDto.clinicSlug },
+        select: { id: true },
+      });
+      if (!organization) {
+        throw new NotFoundException('Clinic not found');
+      }
+    } else {
+      await this.invitationsService.getByToken(registerDto.inviteToken);
     }
 
-    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+    return { dto: registerDto, resolved };
+  }
+
+  private async executeRegisterPatient(
+    registerDto: RegisterPatientDto,
+    resolved: ResolvedRegistration,
+  ): Promise<AuthTokenResponse> {
     const user = await this.prisma.client.$transaction(async (tx) => {
+      let organizationId: string;
+
+      if (registerDto.inviteToken) {
+        const consumed = await this.invitationsService.consume(
+          registerDto.inviteToken,
+          registerDto.email,
+          tx,
+        );
+        if (consumed.role !== Role.PATIENT) {
+          throw new BadRequestException('Invalid client invitation');
+        }
+        if (
+          registerDto.clinicSlug &&
+          registerDto.clinicSlug !== consumed.clinicSlug
+        ) {
+          throw new BadRequestException('Clinic does not match invitation');
+        }
+        organizationId = consumed.organizationId;
+      } else {
+        if (!registerDto.clinicSlug) {
+          throw new BadRequestException('Clinic is required');
+        }
+        const organization = await tx.organization.findUnique({
+          where: { slug: registerDto.clinicSlug },
+          select: { id: true },
+        });
+        if (!organization) {
+          throw new NotFoundException('Clinic not found');
+        }
+        organizationId = organization.id;
+      }
+
       const createdUser = await tx.user.create({
         data: {
-          email: registerDto.email,
-          password: hashedPassword,
+          email: resolved.email,
+          password: resolved.passwordHash,
+          googleId: resolved.googleId,
           name: `${registerDto.firstName} ${registerDto.lastName}`.trim(),
           role: Role.PATIENT,
-          organizationId: organization.id,
+          organizationId,
         },
       });
 
       const existingPatient = await tx.patient.findFirst({
         where: {
-          organizationId: organization.id,
+          organizationId,
           email: registerDto.email,
           userId: null,
         },
@@ -221,7 +560,7 @@ export class AuthService {
       } else {
         await tx.patient.create({
           data: {
-            organizationId: organization.id,
+            organizationId,
             userId: createdUser.id,
             firstName: registerDto.firstName,
             lastName: registerDto.lastName,
@@ -240,59 +579,6 @@ export class AuthService {
     await this.emailService.sendWelcomeEmail(user.email, user.name ?? '');
     const tokens = await this.generateToken(user.id, user.email, user.role);
     await this.updateRefreshToken(user.id, tokens.refresh_token);
-    return tokens;
-  }
-
-  async registerLegacy(registerDto: RegisterClinicDto): Promise<AuthTokenResponse> {
-    return this.registerClinic(registerDto);
-  }
-
-  // ================================
-  // Login
-  // ================================
-  async login(loginDto: LoginDto): Promise<AuthTokenResponse> {
-    try {
-      await getLoginRateLimiter().consume(loginDto.email);
-    } catch {
-      throw new UnauthorizedException('Too many login attempts');
-    }
-    const user = await this.prisma.client.user.findUnique({
-      where: { email: loginDto.email },
-    });
-
-    if (!user || !user.password) {
-      await this.auditService.log({
-        action: 'LOGIN_FAILED',
-        resource: 'AUTH',
-        metadata: { email: loginDto.email },
-      });
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const passwordMatches = await bcrypt.compare(
-      loginDto.password,
-      user.password,
-    );
-
-    if (!passwordMatches) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const tokens = await this.generateToken(user.id, user.email, user.role);
-
-    await this.updateRefreshToken(user.id, tokens.refresh_token);
-    await this.auditService.log({
-      userId: user.id,
-
-      action: 'LOGIN_SUCCESS',
-
-      resource: 'AUTH',
-
-      metadata: {
-        email: user.email,
-      },
-    });
-
     return tokens;
   }
 
@@ -443,9 +729,7 @@ export class AuthService {
   // ================================
   // Google OAuth
   // ================================
-  async validateGoogleUser(
-    profile: GoogleProfileInput,
-  ): Promise<GoogleAuthResult> {
+  async findGoogleUser(profile: GoogleProfileInput): Promise<User | null> {
     let user = await this.prisma.client.user.findUnique({
       where: { googleId: profile.googleId },
     });
@@ -462,22 +746,87 @@ export class AuthService {
       }
     }
 
-    if (!user) {
-      user = await this.prisma.client.user.create({
-        data: {
-          email: profile.email,
-          googleId: profile.googleId,
-          name: profile.name,
-          role: Role.PATIENT,
-        },
-      });
+    return user;
+  }
+
+  async completeGoogleLogin(user: User): Promise<AuthTokenResponse> {
+    const tokens = await this.generateToken(user.id, user.email, user.role);
+    await this.updateRefreshToken(user.id, tokens.refresh_token);
+    return tokens;
+  }
+
+  async signGoogleOnboardingToken(
+    profile: GoogleProfileInput,
+  ): Promise<string> {
+    const payload: GoogleOnboardingPayload = {
+      purpose: 'google_onboarding',
+      googleId: profile.googleId,
+      email: profile.email,
+      name: profile.name,
+    };
+
+    return this.jwtService.signAsync(payload, {
+      secret: process.env.JWT_SECRET || 'dev_secret',
+      expiresIn: '5m',
+    });
+  }
+
+  async getGoogleOnboarding(token: string): Promise<GoogleOnboardingResponse> {
+    const payload = await this.verifyGoogleOnboardingToken(token);
+    return { email: payload.email, name: payload.name };
+  }
+
+  private async verifyGoogleOnboardingToken(
+    token: string,
+  ): Promise<GoogleOnboardingPayload> {
+    try {
+      const payload =
+        await this.jwtService.verifyAsync<GoogleOnboardingPayload>(token, {
+          secret: process.env.JWT_SECRET || 'dev_secret',
+        });
+
+      if (payload.purpose !== 'google_onboarding') {
+        throw new UnauthorizedException('Invalid Google onboarding token');
+      }
+
+      return payload;
+    } catch {
+      throw new UnauthorizedException(
+        'Invalid or expired Google onboarding token',
+      );
+    }
+  }
+
+  private async resolveGoogleRegistration(
+    email: string,
+    password: string | undefined,
+    googleToken: string | undefined,
+  ): Promise<{
+    email: string;
+    googleId: string | undefined;
+    passwordHash: string | null;
+  }> {
+    if (!googleToken) {
+      if (!password) {
+        throw new BadRequestException('Password is required');
+      }
+      return {
+        email,
+        googleId: undefined,
+        passwordHash: await bcrypt.hash(password, 10),
+      };
     }
 
-    const tokens = await this.generateToken(user.id, user.email, user.role);
+    const payload = await this.verifyGoogleOnboardingToken(googleToken);
+    if (payload.email !== email) {
+      throw new BadRequestException('Email must match your Google account');
+    }
 
-    await this.updateRefreshToken(user.id, tokens.refresh_token);
-
-    return { user, tokens };
+    return {
+      email: payload.email,
+      googleId: payload.googleId,
+      passwordHash: null,
+    };
   }
 
   private getStoredRefreshToken(hashedRefreshToken: unknown): string {

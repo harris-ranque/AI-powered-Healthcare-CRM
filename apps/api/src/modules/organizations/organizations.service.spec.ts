@@ -1,19 +1,52 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { OrganizationsService } from './organizations.service';
-import { mockPrismaService } from '../../test/testing-utils';
+import { Test } from '@nestjs/testing';
 
-describe('OrganizationsService', () => {
+import { PrismaService } from '../../database/prisma.service';
+import { OrganizationsService } from './organizations.service';
+
+describe('OrganizationsService.searchPublic', () => {
   let service: OrganizationsService;
+  const findMany = jest.fn();
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [OrganizationsService, mockPrismaService],
+    jest.clearAllMocks();
+    const module = await Test.createTestingModule({
+      providers: [
+        OrganizationsService,
+        {
+          provide: PrismaService,
+          useValue: {
+            client: {
+              organization: { findMany, findUnique: jest.fn(), findFirst: jest.fn() },
+            },
+          },
+        },
+      ],
     }).compile();
 
-    service = module.get<OrganizationsService>(OrganizationsService);
+    service = module.get(OrganizationsService);
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+  it('returns empty array for short queries', async () => {
+    await expect(service.searchPublic('a')).resolves.toEqual([]);
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it('searches clinics case-insensitively', async () => {
+    findMany.mockResolvedValue([{ name: 'Sunrise', slug: 'sunrise' }]);
+
+    const results = await service.searchPublic('sun');
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [
+            { name: { contains: 'sun', mode: 'insensitive' } },
+            { slug: { contains: 'sun', mode: 'insensitive' } },
+          ],
+        },
+        take: 10,
+      }),
+    );
+    expect(results).toEqual([{ name: 'Sunrise', slug: 'sunrise' }]);
   });
 });
