@@ -87,6 +87,11 @@ export default function PatientsPage() {
         />
       ) : null}
 
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">Patients</h2>
+        {meta ? <span className="text-muted-foreground text-sm">{meta.total} total</span> : null}
+      </div>
+
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="relative w-full max-w-lg">
           <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
@@ -132,13 +137,6 @@ export default function PatientsPage() {
             New patient
           </Button>
         </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Patients</h2>
-        {meta ? (
-          <span className="text-muted-foreground text-sm">{meta.total} total</span>
-        ) : null}
       </div>
 
       <DataTable
