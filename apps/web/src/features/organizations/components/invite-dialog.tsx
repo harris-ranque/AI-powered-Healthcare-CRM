@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { UserPlus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -34,14 +34,25 @@ type InviteMode = 'client' | 'staff';
 
 type Props = {
   mode: InviteMode;
+  onOpenChange?: (open: boolean) => void;
 };
 
-export function InviteDialog({ mode }: Props) {
+export function InviteDialog({ mode, onOpenChange }: Props) {
   const user = useAuth().user;
   const notify = useNotificationStore((state) => state.notify);
   const createInvitation = useCreateInvitation();
+  const emailInputId = useId();
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    onOpenChange?.(next);
+    if (!next) {
+      setEmail('');
+    }
+  };
   const [staffRole, setStaffRole] = useState<Role.DOCTOR | Role.NURSE | Role.RECEPTIONIST>(
     Role.DOCTOR,
   );
@@ -70,7 +81,7 @@ export function InviteDialog({ mode }: Props) {
             : 'Staff invitation sent',
       });
       setEmail('');
-      setOpen(false);
+      handleOpenChange(false);
     } catch (error) {
       notify({
         type: 'error',
@@ -80,14 +91,19 @@ export function InviteDialog({ mode }: Props) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="shadow-sm">
           <UserPlus className="mr-2 size-4" />
           {mode === 'client' ? 'Invite client' : 'Invite staff'}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          emailInputRef.current?.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
             {mode === 'client' ? 'Invite a client' : 'Invite a team member'}
@@ -96,12 +112,23 @@ export function InviteDialog({ mode }: Props) {
             We will email a signup link that pre-fills their clinic and role.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-2">
+        <form
+          className="space-y-4 py-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleSubmit();
+          }}
+        >
           <div className="space-y-2">
-            <Label htmlFor="invite-email">Email</Label>
+            <Label htmlFor={emailInputId}>Email</Label>
             <Input
-              id="invite-email"
+              ref={emailInputRef}
+              id={emailInputId}
+              name={`${mode}-invitation-email`}
               type="email"
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="person@example.com"
@@ -127,15 +154,15 @@ export function InviteDialog({ mode }: Props) {
               </Select>
             </div>
           ) : null}
-        </div>
-        <DialogFooter>
-          <Button
-            onClick={() => void handleSubmit()}
-            disabled={!email.trim() || createInvitation.isPending}
-          >
-            {createInvitation.isPending ? 'Sending...' : 'Send invitation'}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="px-0 pb-0">
+            <Button
+              type="submit"
+              disabled={!email.trim() || createInvitation.isPending}
+            >
+              {createInvitation.isPending ? 'Sending...' : 'Send invitation'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

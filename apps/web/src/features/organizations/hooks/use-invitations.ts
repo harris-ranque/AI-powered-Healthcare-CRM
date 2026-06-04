@@ -8,13 +8,17 @@ import { invitationsApi } from '../api/invitations.api';
 
 export const invitationsQueryKeys = {
   all: ['invitations'] as const,
-  list: (status?: string) => [...invitationsQueryKeys.all, status ?? 'all'] as const,
+  list: (status?: string, inviteeType?: 'client' | 'staff') =>
+    [...invitationsQueryKeys.all, status ?? 'all', inviteeType ?? 'all'] as const,
 };
 
-export function useInvitationsList(status?: string) {
+export function useInvitationsList(
+  status?: string,
+  inviteeType?: 'client' | 'staff',
+) {
   return useQuery({
-    queryKey: invitationsQueryKeys.list(status),
-    queryFn: () => invitationsApi.list(status),
+    queryKey: invitationsQueryKeys.list(status, inviteeType),
+    queryFn: () => invitationsApi.list(status, inviteeType),
   });
 }
 

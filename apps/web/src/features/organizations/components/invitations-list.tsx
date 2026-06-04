@@ -18,11 +18,15 @@ import { useInvitationsList, useRevokeInvitation } from '../hooks/use-invitation
 
 type Props = {
   action?: ReactNode;
+  inviteeType?: 'client' | 'staff';
 };
 
-export function InvitationsList({ action }: Props) {
+export function InvitationsList({ action, inviteeType }: Props) {
   const notify = useNotificationStore((state) => state.notify);
-  const { data: invitations = [], isLoading, error } = useInvitationsList('PENDING');
+  const { data: invitations = [], isLoading, error } = useInvitationsList(
+    'PENDING',
+    inviteeType,
+  );
   const revoke = useRevokeInvitation();
 
   const handleRevoke = async (id: string) => {

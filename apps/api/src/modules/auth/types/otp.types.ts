@@ -1,6 +1,7 @@
 export type OtpPurpose =
   | 'LOGIN'
   | 'REGISTER_CLINIC'
+  | 'REGISTER_SOLO'
   | 'REGISTER_STAFF'
   | 'REGISTER_PATIENT';
 

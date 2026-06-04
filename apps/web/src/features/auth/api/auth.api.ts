@@ -13,6 +13,14 @@ export type RegisterClinicPayload = {
   clinicSlug: string;
 };
 
+export type RegisterSoloPayload = {
+  name: string;
+  email: string;
+  password?: string;
+  googleToken?: string;
+  practiceName?: string;
+};
+
 export type RegisterStaffPayload = {
   name: string;
   email: string;
@@ -50,6 +58,11 @@ export const authApi = {
 
   registerClinic: async (payload: RegisterClinicPayload): Promise<OtpPendingResponse> => {
     const response = await api.post<OtpPendingResponse>('/auth/register/clinic', payload);
+    return response.data;
+  },
+
+  registerSolo: async (payload: RegisterSoloPayload): Promise<OtpPendingResponse> => {
+    const response = await api.post<OtpPendingResponse>('/auth/register/solo', payload);
     return response.data;
   },
 

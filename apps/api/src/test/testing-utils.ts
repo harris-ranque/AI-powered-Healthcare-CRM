@@ -6,6 +6,8 @@ import { OrganizationContextGuard } from '../common/guards/organization-context.
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RolesGuard } from '../common/guards/role.guard';
 import { PrismaService } from '../database/prisma.service';
+import { InvitationsService } from '../modules/invitations/invitations.service';
+import { OtpService } from '../modules/auth/otp.service';
 
 export const mockGuard = {
   canActivate: jest.fn().mockReturnValue(true),
@@ -85,5 +87,21 @@ export const mockConfigService = {
   provide: ConfigService,
   useValue: {
     get: jest.fn(),
+  },
+};
+
+export const mockInvitationsService = {
+  provide: InvitationsService,
+  useValue: {
+    getByToken: jest.fn(),
+    consume: jest.fn(),
+  },
+};
+
+export const mockOtpService = {
+  provide: OtpService,
+  useValue: {
+    createChallenge: jest.fn(),
+    verifyAndConsume: jest.fn(),
   },
 };

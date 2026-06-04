@@ -34,17 +34,22 @@ import { useMembersList, useUpdateMemberRole, useUpdateMemberStatus } from '../h
 type Props = {
   canManageMembers?: boolean;
   canInviteClients?: boolean;
+  canInviteStaff?: boolean;
 };
 
 export function MembersTable({
   canManageMembers: canManageMembersProp,
   canInviteClients: canInviteClientsProp,
+  canInviteStaff: canInviteStaffProp,
 }: Props) {
   const user = useAuth().user;
   const canManageMembers =
     canManageMembersProp ?? hasPermission(user?.role, Permission.MEMBER_MANAGE);
   const canInviteClients =
     canInviteClientsProp ?? hasPermission(user?.role, Permission.CLIENT_INVITE);
+  const canInviteStaff =
+    canInviteStaffProp ?? hasPermission(user?.role, Permission.STAFF_INVITE);
+  const canViewInvitations = canInviteClients || canInviteStaff;
   const [statusFilter, setStatusFilter] = useState<'PENDING' | 'ACTIVE' | 'DISABLED' | 'all'>(
     'PENDING',
   );
@@ -102,7 +107,12 @@ export function MembersTable({
 
   return (
     <div className="space-y-4">
-      {canInviteClients ? <InvitationsList action={<InviteDialog mode="staff" />} /> : null}
+      {canViewInvitations ? (
+        <InvitationsList
+          inviteeType="staff"
+          action={canInviteStaff ? <InviteDialog mode="staff" /> : undefined}
+        />
+      ) : null}
 
       {!canManageMembers ? null : isLoading ? (
         <p className="text-muted-foreground text-sm">Loading members...</p>

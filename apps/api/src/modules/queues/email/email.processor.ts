@@ -28,6 +28,8 @@ function purposeLabel(purpose: string): string {
       return 'sign in';
     case 'REGISTER_CLINIC':
       return 'clinic registration';
+    case 'REGISTER_SOLO':
+      return 'solo practice registration';
     case 'REGISTER_STAFF':
       return 'staff registration';
     case 'REGISTER_PATIENT':

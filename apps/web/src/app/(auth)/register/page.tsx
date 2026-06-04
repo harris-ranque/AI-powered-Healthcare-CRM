@@ -17,7 +17,7 @@ export default function RegisterPage() {
     persona === 'client'
       ? '/register/client'
       : providerType === 'individual'
-        ? '/register/staff'
+        ? '/register/solo'
         : '/register/clinic';
 
   return (

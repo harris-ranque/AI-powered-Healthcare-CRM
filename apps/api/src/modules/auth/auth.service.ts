@@ -16,7 +16,9 @@ import { PrismaService } from '../../database/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterClinicDto } from './dto/register-clinic.dto';
 import { RegisterPatientDto } from './dto/register-patient.dto';
+import { RegisterSoloDto } from './dto/register-solo.dto';
 import { RegisterStaffDto } from './dto/register-staff.dto';
+import { suggestSlug } from '../../common/utils/suggest-slug';
 import { JwtPayload } from './types/jwt-payload.type';
 import { getLoginRateLimiter } from '../../common/security/login-rate-limit';
 import { EmailService } from '../queues/email/email.service';
@@ -35,7 +37,7 @@ type ResolvedRegistration = {
 
 type RegisterChallengePayload = {
   resolved: ResolvedRegistration;
-  dto: RegisterClinicDto | RegisterStaffDto | RegisterPatientDto;
+  dto: RegisterClinicDto | RegisterStaffDto | RegisterPatientDto | RegisterSoloDto;
 };
 
 export type AuthTokenResponse = {
@@ -146,6 +148,17 @@ export class AuthService {
     });
   }
 
+  async startRegisterSolo(
+    registerDto: RegisterSoloDto,
+  ): Promise<OtpPendingResponse> {
+    const payload = await this.prepareRegisterSolo(registerDto);
+    return this.otpService.createChallenge({
+      purpose: 'REGISTER_SOLO',
+      email: payload.resolved.email,
+      payload,
+    });
+  }
+
   async verifyOtp(
     otpSessionId: string,
     code: string,
@@ -196,6 +209,11 @@ export class AuthService {
           payload.dto as RegisterPatientDto,
           payload.resolved,
         );
+      case 'REGISTER_SOLO':
+        return this.executeRegisterClinic(
+          payload.dto as RegisterClinicDto,
+          payload.resolved,
+        );
       default:
         throw new BadRequestException('Unknown verification purpose');
     }
@@ -209,6 +227,46 @@ export class AuthService {
     registerDto: RegisterClinicDto,
   ): Promise<OtpPendingResponse> {
     return this.startRegisterClinic(registerDto);
+  }
+
+  // ================================
+  // Register solo practice (individual provider owns org)
+  // ================================
+  private async prepareRegisterSolo(
+    registerDto: RegisterSoloDto,
+  ): Promise<RegisterChallengePayload> {
+    const clinicName =
+      registerDto.practiceName?.trim() ||
+      `${registerDto.name.trim()} Practice`;
+    let clinicSlug = suggestSlug(clinicName);
+    if (!clinicSlug) {
+      clinicSlug = suggestSlug(registerDto.name) || 'solo-practice';
+    }
+
+    let suffix = 0;
+    while (true) {
+      const candidate = suffix === 0 ? clinicSlug : `${clinicSlug}-${suffix}`;
+      const existing = await this.prisma.client.organization.findUnique({
+        where: { slug: candidate },
+      });
+      if (!existing) {
+        clinicSlug = candidate;
+        break;
+      }
+      suffix += 1;
+    }
+
+    const clinicDto: RegisterClinicDto = {
+      email: registerDto.email,
+      name: registerDto.name,
+      password: registerDto.password,
+      googleToken: registerDto.googleToken,
+      clinicName,
+      clinicSlug,
+    };
+
+    const prepared = await this.prepareRegisterClinic(clinicDto);
+    return { dto: clinicDto, resolved: prepared.resolved };
   }
 
   // ================================
@@ -381,12 +439,16 @@ export class AuthService {
         },
       });
 
+      const memberStatus = registerDto.inviteToken
+        ? MemberStatus.ACTIVE
+        : MemberStatus.PENDING;
+
       await tx.organizationMember.create({
         data: {
           organizationId,
           userId: createdUser.id,
           role: memberRole,
-          status: MemberStatus.PENDING,
+          status: memberStatus,
         },
       });
 

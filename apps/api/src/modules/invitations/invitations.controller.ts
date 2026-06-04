@@ -10,10 +10,10 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { InvitationStatus } from '@prisma/client';
+import { InvitationStatus, Role } from '@prisma/client';
 
 import { CurrentOrganization } from '../../common/decorators/current-organization.decorator';
-import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
+import { RequireAnyPermissions } from '../../common/decorators/require-any-permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { OrganizationContextGuard } from '../../common/guards/organization-context.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -37,11 +37,13 @@ export class InvitationsController {
   }
 
   @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionsGuard)
-  @RequirePermissions(Permission.CLIENT_INVITE)
+  @RequireAnyPermissions(Permission.CLIENT_INVITE, Permission.STAFF_INVITE)
   @Get('invitations')
   listInvitations(
     @CurrentOrganization() organization: OrganizationContext,
     @Query('status') status?: InvitationStatus,
+    @Query('role') role?: Role,
+    @Query('inviteeType') inviteeType?: 'client' | 'staff',
   ) {
     if (
       status &&
@@ -52,9 +54,23 @@ export class InvitationsController {
     ) {
       throw new BadRequestException('Invalid status filter');
     }
+    if (
+      role &&
+      role !== Role.PATIENT &&
+      role !== Role.DOCTOR &&
+      role !== Role.NURSE &&
+      role !== Role.RECEPTIONIST
+    ) {
+      throw new BadRequestException('Invalid role filter');
+    }
+    if (inviteeType && inviteeType !== 'client' && inviteeType !== 'staff') {
+      throw new BadRequestException('Invalid inviteeType filter');
+    }
     return this.invitationsService.listForOrganization(
       organization.organizationId,
       status,
+      role,
+      inviteeType,
     );
   }
 
@@ -73,7 +89,7 @@ export class InvitationsController {
   }
 
   @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionsGuard)
-  @RequirePermissions(Permission.CLIENT_INVITE)
+  @RequireAnyPermissions(Permission.CLIENT_INVITE, Permission.STAFF_INVITE)
   @Patch('invitations/:id/revoke')
   revokeInvitation(
     @Param('id') id: string,

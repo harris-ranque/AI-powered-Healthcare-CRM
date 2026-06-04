@@ -26,9 +26,15 @@ export const invitationsApi = {
     return response.data;
   },
 
-  list: async (status?: string): Promise<InvitationListItem[]> => {
+  list: async (
+    status?: string,
+    inviteeType?: 'client' | 'staff',
+  ): Promise<InvitationListItem[]> => {
     const response = await api.get<InvitationListItem[]>('/invitations', {
-      params: status ? { status } : undefined,
+      params: {
+        ...(status ? { status } : {}),
+        ...(inviteeType ? { inviteeType } : {}),
+      },
     });
     return response.data;
   },

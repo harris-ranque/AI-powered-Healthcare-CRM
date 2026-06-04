@@ -11,7 +11,8 @@ A multi-tenant SaaS CRM tailored for healthcare organizations. The platform comb
 Login and register use a **Client | Provider** toggle:
 
 - **Client** — patients (`/portal/`).
-- **Provider** — **Organization** (clinic owner → `/dashboard/`) or **Individual** (staff → `/onboarding/pending/` until approved).
+- **Provider** — **Organization** (multi-provider clinic owner → `/dashboard/`) or **Individual** (solo practice owner → `/dashboard/`).
+- **Employed staff** — join only via email invite (`/register/staff?invite=...` → `/dashboard/` when active).
 
 ### Google OAuth
 
@@ -26,7 +27,7 @@ Login and register use a **Client | Provider** toggle:
 
 ![Email OTP verification flow](docs/images/email-otp-flow.png)
 
-Password-based **login** and all **register** endpoints (`/auth/register`, `/register/clinic`, `/register/staff`, `/register/patient`) use a two-step flow:
+Password-based **login** and all **register** endpoints (`/auth/register`, `/register/clinic`, `/register/solo`, `/register/staff`, `/register/patient`) use a two-step flow:
 
 1. Submit credentials or registration form → API returns `{ otpSessionId, email, expiresIn }` (masked email) and queues a 6-digit code.
 2. Enter the code on the OTP screen → `POST /auth/otp/verify` issues tokens and sets the refresh cookie.
@@ -38,16 +39,42 @@ Password-based **login** and all **register** endpoints (`/auth/register`, `/reg
 
 ### Post-auth routing
 
-- **Clinic owner** → `/dashboard/`
-- **Staff** (pending) → `/onboarding/pending/`
+- **Clinic owner / solo practice owner** → `/dashboard/`
+- **Invited staff** (active membership) → `/dashboard/`
 - **Patient** → `/portal/`
 
 ## Clinic picker & invitations
 
 ![Searchable clinic picker and invitation flow](docs/images/clinic-picker-invitations-flow.png)
 
-- **Self-serve registration** — clients and individual providers find their clinic via a searchable picker (`GET /organizations/search?q=`), which resolves the `clinicSlug` used at signup.
-- **Invitations** — clinic owners can invite staff or clients and individual providers can invite clients. A DB-backed `Invitation` row with a single-use token is created and emailed as a `?invite=<token>` register link that prefills and locks the clinic (and role for staff) at signup.
+### Registration paths
+
+| Persona | Route | Creates |
+|--------|-------|---------|
+| Patient (self-serve) | `/register/client` + clinic search | `User` + `Patient` record |
+| Patient (invited) | `/register/client?invite=` | Same, org/role from token |
+| Clinic owner | `/register/clinic` | New `Organization`, owner is `CLINIC_OWNER` **ACTIVE** |
+| Solo individual provider | `/register/solo` | New `Organization` (auto practice name/slug), owner is `CLINIC_OWNER` **ACTIVE** |
+| Employed staff | `/register/staff?invite=` only | `OrganizationMember` **ACTIVE** (invite = approval) |
+
+### Who can invite whom
+
+| Inviter | Invite client (`PATIENT`) | Invite staff (`DOCTOR` / `NURSE` / `RECEPTIONIST`) |
+|---------|---------------------------|-----------------------------------------------------|
+| Clinic owner | Yes | Yes |
+| Solo practice owner | Yes | Yes |
+| Active doctor / nurse / receptionist | Yes | Yes (configurable; owners-only is stricter HIPAA policy) |
+
+### Invitation API & UI
+
+- **Create** — `POST /invitations` with `{ email, role }` (permission-checked: `CLIENT_INVITE` or `STAFF_INVITE`).
+- **List / revoke** — `GET /invitations`, `PATCH /invitations/:id/revoke` (requires either invite permission). Optional `?inviteeType=client|staff` filter.
+- **Email** — single-use token, 7-day expiry; links to `/register/client?invite=` or `/register/staff?invite=`.
+- **UI** — **Invite client** on Patients page; **Invite staff** on Members page; pending lists filtered by type.
+
+### Self-serve clinic search (patients)
+
+Clients without an invite can find their clinic via searchable picker (`GET /organizations/search?q=`) and register with the resolved `clinicSlug`.
 
 ### Token handling
 

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
+import { REQUIRED_ANY_PERMISSIONS_KEY } from '../decorators/require-any-permissions.decorator';
 import { REQUIRED_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
 import type { Permission } from '../permissions';
 import type { RequestWithOrganization } from '../types/organization-context.type';
@@ -27,8 +28,12 @@ export class PermissionsGuard implements CanActivate {
       REQUIRED_PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()],
     );
+    const requiredAny = this.reflector.getAllAndOverride<Permission[]>(
+      REQUIRED_ANY_PERMISSIONS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
-    if (!required || required.length === 0) {
+    if ((!required || required.length === 0) && (!requiredAny || requiredAny.length === 0)) {
       return true;
     }
 
@@ -42,12 +47,23 @@ export class PermissionsGuard implements CanActivate {
     }
 
     const grantedSet = new Set(granted);
-    const missing = required.filter((perm) => !grantedSet.has(perm));
 
-    if (missing.length > 0) {
-      throw new ForbiddenException(
-        `Missing required permission(s): ${missing.join(', ')}`,
-      );
+    if (requiredAny && requiredAny.length > 0) {
+      const hasAny = requiredAny.some((perm) => grantedSet.has(perm));
+      if (!hasAny) {
+        throw new ForbiddenException(
+          `Missing required permission (need one of): ${requiredAny.join(', ')}`,
+        );
+      }
+    }
+
+    if (required && required.length > 0) {
+      const missing = required.filter((perm) => !grantedSet.has(perm));
+      if (missing.length > 0) {
+        throw new ForbiddenException(
+          `Missing required permission(s): ${missing.join(', ')}`,
+        );
+      }
     }
 
     return true;

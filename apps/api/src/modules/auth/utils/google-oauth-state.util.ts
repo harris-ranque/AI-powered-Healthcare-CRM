@@ -34,7 +34,7 @@ export function getRegisterPathForOAuthState(state: GoogleOAuthState): string {
     return '/register/client';
   }
   if (state.providerType === 'individual') {
-    return '/register/staff';
+    return '/register/solo';
   }
   return '/register/clinic';
 }

@@ -27,6 +27,7 @@ import {
 import { LoginDto } from './dto/login.dto';
 import { RegisterClinicDto } from './dto/register-clinic.dto';
 import { RegisterPatientDto } from './dto/register-patient.dto';
+import { RegisterSoloDto } from './dto/register-solo.dto';
 import { RegisterStaffDto } from './dto/register-staff.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { Throttle } from '@nestjs/throttler';
@@ -59,6 +60,13 @@ export class AuthController {
     @Body() registerDto: RegisterStaffDto,
   ): Promise<OtpPendingResponse> {
     return this.authService.startRegisterStaff(registerDto);
+  }
+
+  @Post('register/solo')
+  async registerSolo(
+    @Body() registerDto: RegisterSoloDto,
+  ): Promise<OtpPendingResponse> {
+    return this.authService.startRegisterSolo(registerDto);
   }
 
   @Post('register/patient')

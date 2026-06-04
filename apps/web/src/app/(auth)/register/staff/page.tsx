@@ -3,8 +3,6 @@
 import Link from 'next/link';
 import { Suspense, useMemo, useState } from 'react';
 
-import { AuthDivider } from '@/features/auth/components/auth-divider';
-import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button';
 import { OtpVerificationForm } from '@/features/auth/components/otp-verification-form';
 import { RegisterStaffForm } from '@/features/auth/components/register-staff-form';
 import { useCompleteAuth } from '@/features/auth/hooks/use-complete-auth';
@@ -65,7 +63,7 @@ function RegisterStaffContent() {
       notify({ type: 'success', message: 'Check your email for a verification code' });
       startOtp(data);
     } catch (error) {
-      const message = getErrorMessage(error, 'Failed to register staff');
+      const message = getErrorMessage(error, 'Failed to register');
       setApiError(message);
       notify({ type: 'error', message });
     } finally {
@@ -75,34 +73,66 @@ function RegisterStaffContent() {
 
   if (onboardingLoading || inviteLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading Google profile...
+      <div className="medical-gradient-bg flex min-h-screen items-center justify-center text-muted-foreground">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!isInviteFlow) {
+    return (
+      <div className="medical-gradient-bg flex min-h-screen items-center justify-center p-4">
+        <div className="medical-card-glow bg-card w-full max-w-md space-y-4 rounded-xl border p-6">
+          <div>
+            <h1 className="text-primary text-2xl font-bold">Staff registration</h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              To join a clinic as staff, you need an invitation from your clinic owner or an
+              authorized team member. Check your email for an invite link.
+            </p>
+          </div>
+          <div className="space-y-2 text-sm">
+            <p>
+              Running your own solo practice?{' '}
+              <Link href="/register/solo" className="text-primary font-medium underline">
+                Register as an individual provider
+              </Link>
+            </p>
+            <p>
+              Registering a multi-provider clinic?{' '}
+              <Link href="/register/clinic" className="text-primary font-medium underline">
+                Register your organization
+              </Link>
+            </p>
+          </div>
+          <p className="text-muted-foreground text-center text-sm">
+            <Link href="/login" className="text-primary underline">
+              Log in
+            </Link>
+            {' · '}
+            <Link href="/register" className="text-primary underline">
+              Back
+            </Link>
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="medical-gradient-bg flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-4 rounded-lg border p-6">
+      <div className="medical-card-glow bg-card w-full max-w-md space-y-4 rounded-xl border p-6">
         <div>
-          <h1 className="text-2xl font-bold">Individual provider registration</h1>
+          <h1 className="text-primary text-2xl font-bold">Accept your invitation</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Join an existing clinic as doctor, nurse, or receptionist. Owner approval required.
+            Complete registration to join your clinic as a team member.
           </p>
         </div>
 
         {invitePrefill ? (
-          <p className="rounded-md border bg-zinc-50 px-3 py-2 text-sm">
+          <p className="bg-muted/50 rounded-md border px-3 py-2 text-sm">
             You were invited to join <strong>{invitePrefill.organizationName}</strong> as{' '}
             <strong>{invitePrefill.role.toLowerCase()}</strong>
           </p>
-        ) : null}
-
-        {!isGoogleOnboarding && !isInviteFlow ? (
-          <>
-            <GoogleSignInButton persona="provider" providerType="individual" />
-            <AuthDivider />
-          </>
         ) : null}
 
         {onboardingError ? <p className="text-sm text-red-600">{onboardingError}</p> : null}
@@ -113,29 +143,29 @@ function RegisterStaffContent() {
             pending={pending}
             onVerified={completeAuth}
             onBack={clearOtp}
-            successMessage="Registration complete — waiting for clinic owner approval"
+            successMessage="Welcome to the team — you can sign in now"
           />
         ) : (
-        <RegisterStaffForm
-          loading={loading}
-          apiError={apiError}
-          googleToken={googleToken}
-          hidePassword={isGoogleOnboarding}
-          emailLocked={isGoogleOnboarding || Boolean(invitePrefill)}
-          clinicLocked={Boolean(invitePrefill)}
-          roleLocked={Boolean(invitePrefill)}
-          clinicDisplayName={invitePrefill?.organizationName}
-          initialValues={initialValues}
-          onSubmit={handleSubmit}
-        />
+          <RegisterStaffForm
+            loading={loading}
+            apiError={apiError}
+            googleToken={googleToken}
+            hidePassword={isGoogleOnboarding}
+            emailLocked={isGoogleOnboarding || Boolean(invitePrefill)}
+            clinicLocked={Boolean(invitePrefill)}
+            roleLocked={Boolean(invitePrefill)}
+            clinicDisplayName={invitePrefill?.organizationName}
+            initialValues={initialValues}
+            onSubmit={handleSubmit}
+          />
         )}
 
-        <p className="text-center text-sm text-zinc-600">
-          <Link href="/register" className="underline">
+        <p className="text-muted-foreground text-center text-sm">
+          <Link href="/register" className="text-primary underline">
             Back
           </Link>
           {' · '}
-          <Link href="/login" className="underline">
+          <Link href="/login" className="text-primary underline">
             Log in
           </Link>
         </p>
@@ -148,7 +178,7 @@ export default function RegisterStaffPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+        <div className="medical-gradient-bg flex min-h-screen items-center justify-center text-muted-foreground">
           Loading...
         </div>
       }

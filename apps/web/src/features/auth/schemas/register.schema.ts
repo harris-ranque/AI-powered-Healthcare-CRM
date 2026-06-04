@@ -77,7 +77,16 @@ export const registerPatientSchema = withOptionalGooglePassword({
   }
 });
 
+export const registerSoloSchema = withOptionalGooglePassword({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Enter a valid email'),
+  password: passwordSchema.optional(),
+  googleToken: z.string().optional(),
+  practiceName: z.string().min(3, 'Practice name must be at least 3 characters').optional(),
+});
+
 export type RegisterClinicFormValues = z.infer<typeof registerClinicSchema>;
+export type RegisterSoloFormValues = z.infer<typeof registerSoloSchema>;
 export type RegisterStaffFormValues = z.infer<typeof registerStaffSchema>;
 export type RegisterPatientFormValues = z.infer<typeof registerPatientSchema>;
 

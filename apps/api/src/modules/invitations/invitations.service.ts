@@ -122,11 +122,22 @@ export class InvitationsService {
   async listForOrganization(
     organizationId: string,
     status?: InvitationStatus,
+    role?: Role,
+    inviteeType?: 'client' | 'staff',
   ): Promise<InvitationListItem[]> {
+    const roleFilter =
+      role ??
+      (inviteeType === 'client'
+        ? Role.PATIENT
+        : inviteeType === 'staff'
+          ? { in: STAFF_ROLES }
+          : undefined);
+
     const invitations = await this.prisma.client.invitation.findMany({
       where: {
         organizationId,
         ...(status ? { status } : {}),
+        ...(roleFilter ? { role: roleFilter } : {}),
       },
       orderBy: { createdAt: 'desc' },
       include: { invitedBy: { select: { name: true } } },
