@@ -48,7 +48,7 @@ export function InviteDialog({ mode }: Props) {
 
   const canInviteClient = hasPermission(user?.role, Permission.CLIENT_INVITE);
   const canInviteStaff =
-    mode === 'staff' && hasPermission(user?.role, Permission.MEMBER_MANAGE);
+    mode === 'staff' && hasPermission(user?.role, Permission.STAFF_INVITE);
 
   if (mode === 'client' && !canInviteClient) {
     return null;

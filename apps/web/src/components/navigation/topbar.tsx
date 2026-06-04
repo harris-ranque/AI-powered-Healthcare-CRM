@@ -1,8 +1,10 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { Menu } from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 
 type PageMeta = {
   title: string;
@@ -61,20 +63,36 @@ function getPageMeta(pathname: string | null): PageMeta | undefined {
   return matchedKey ? PAGE_META[matchedKey] : undefined;
 }
 
-export function Topbar() {
+type TopbarProps = {
+  onMenuClick?: () => void;
+};
+
+export function Topbar({ onMenuClick }: TopbarProps) {
   const pathname = usePathname();
   const meta = getPageMeta(pathname);
 
   return (
-    <header className="medical-topbar-accent flex h-16 items-center justify-between px-6">
-      <div>
+    <header className="medical-topbar-accent flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        {onMenuClick ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="border-primary/20 text-primary shrink-0 lg:hidden"
+            onClick={onMenuClick}
+            aria-label="Open navigation menu"
+          >
+            <Menu className="size-5" />
+          </Button>
+        ) : null}
         {meta ? (
-          <>
-            <h1 className="text-primary text-lg leading-tight font-bold">{meta.title}</h1>
+          <div className="min-w-0">
+            <h1 className="text-primary truncate text-lg leading-tight font-bold">{meta.title}</h1>
             {meta.description ? (
-              <p className="text-muted-foreground text-xs">{meta.description}</p>
+              <p className="text-muted-foreground truncate text-xs">{meta.description}</p>
             ) : null}
-          </>
+          </div>
         ) : null}
       </div>
 
