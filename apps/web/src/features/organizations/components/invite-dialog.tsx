@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { UserPlus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -81,7 +82,8 @@ export function InviteDialog({ mode }: Props) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant={mode === 'client' ? 'default' : 'outline'}>
+        <Button className="shadow-sm">
+          <UserPlus className="mr-2 size-4" />
           {mode === 'client' ? 'Invite client' : 'Invite staff'}
         </Button>
       </DialogTrigger>

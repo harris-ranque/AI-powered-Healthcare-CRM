@@ -21,7 +21,7 @@ export default function RegisterPage() {
         : '/register/clinic';
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="medical-gradient-bg flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6 rounded-lg border p-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Create your account</h1>

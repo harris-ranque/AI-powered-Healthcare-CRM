@@ -15,6 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useAuth } from '@/features/auth/hooks/use-auth';
+import { Permission, hasPermission } from '@/features/auth/utils/role-permissions';
+import { InvitationsList } from '@/features/organizations/components/invitations-list';
+import { InviteDialog } from '@/features/organizations/components/invite-dialog';
 import { CreatePatientDialog } from '@/features/patients/components/create-patient-dialog';
 import { DeletePatientDialog } from '@/features/patients/components/delete-patient-dialog';
 import { EditPatientDialog } from '@/features/patients/components/edit-patient-dialog';
@@ -28,6 +32,8 @@ import type {
 } from '@/features/patients/types/patient.type';
 
 export default function PatientsPage() {
+  const user = useAuth().user;
+  const canInviteClients = hasPermission(user?.role, Permission.CLIENT_INVITE);
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -73,18 +79,9 @@ export default function PatientsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Patients</h1>
-          <p className="text-muted-foreground text-sm">
-            Manage patient records with search, sorting, and pagination.
-          </p>
-        </div>
-        <Button onClick={() => setIsCreateOpen(true)}>
-          <Plus className="mr-2 size-4" />
-          New patient
-        </Button>
-      </div>
+      {canInviteClients ? (
+        <InvitationsList action={<InviteDialog mode="client" />} />
+      ) : null}
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="relative w-full max-w-lg">
@@ -120,6 +117,10 @@ export default function PatientsPage() {
               <SelectItem value="50">50 / page</SelectItem>
             </SelectContent>
           </Select>
+          <Button onClick={() => setIsCreateOpen(true)}>
+            <Plus className="mr-2 size-4" />
+            New patient
+          </Button>
         </div>
       </div>
 

@@ -32,13 +32,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   if (!isInitialized) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-zinc-500">Loading...</div>
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>
     );
   }
 
   if (!accessToken) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-zinc-500">
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
         Redirecting to sign in...
       </div>
     );
@@ -46,7 +46,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   if (user && (isPatientRole(user.role) || user.memberStatus === 'PENDING')) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-zinc-500">
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
         Redirecting...
       </div>
     );

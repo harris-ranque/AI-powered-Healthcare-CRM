@@ -55,8 +55,8 @@ import { InvitationsModule } from './modules/invitations/invitations.module';
     StripeModule,
     ThrottlerModule.forRoot([
       {
-        ttl: 10000,
-        limit: 5,
+        ttl: 60000,
+        limit: 100,
       },
     ]),
     BullModule.forRoot({

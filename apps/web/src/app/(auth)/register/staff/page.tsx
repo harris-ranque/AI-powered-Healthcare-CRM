@@ -75,14 +75,14 @@ function RegisterStaffContent() {
 
   if (onboardingLoading || inviteLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-zinc-500">
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
         Loading Google profile...
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="medical-gradient-bg flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-md space-y-4 rounded-lg border p-6">
         <div>
           <h1 className="text-2xl font-bold">Individual provider registration</h1>
@@ -148,7 +148,7 @@ export default function RegisterStaffPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center text-zinc-500">
+        <div className="flex min-h-screen items-center justify-center text-muted-foreground">
           Loading...
         </div>
       }

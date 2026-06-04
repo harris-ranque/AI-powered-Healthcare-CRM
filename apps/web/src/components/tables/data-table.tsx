@@ -62,11 +62,11 @@ export function DataTable<TData, TMeta = unknown>({
   const visibleColumnCount = Math.max(table.getVisibleLeafColumns().length, 1);
 
   return (
-    <div className="rounded-lg border">
+    <div className="medical-card-glow bg-card rounded-lg border">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
+            <TableRow key={headerGroup.id} className="bg-primary/5 hover:bg-primary/5">
               {headerGroup.headers.map((header) => (
                 <TableHead key={header.id}>
                   {flexRender(header.column.columnDef.header, header.getContext())}

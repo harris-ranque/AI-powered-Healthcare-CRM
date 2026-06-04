@@ -87,7 +87,7 @@ export default function PendingOnboardingPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="medical-gradient-bg flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-md space-y-4 rounded-lg border p-6 text-center">
         <h1 className="text-2xl font-bold">Approval pending</h1>
         <p className="text-muted-foreground text-sm">

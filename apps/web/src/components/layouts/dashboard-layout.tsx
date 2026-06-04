@@ -10,7 +10,7 @@ type Props = {
 
 export function DashboardLayout({ children }: Props) {
   return (
-    <div className="bg-muted/30 flex min-h-screen">
+    <div className="medical-gradient-bg flex min-h-screen">
       <Sidebar />
 
       <div className="flex flex-1 flex-col">

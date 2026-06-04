@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -14,7 +16,11 @@ import { getErrorMessage } from '@/features/notifications/utils/get-error-messag
 
 import { useInvitationsList, useRevokeInvitation } from '../hooks/use-invitations';
 
-export function InvitationsList() {
+type Props = {
+  action?: ReactNode;
+};
+
+export function InvitationsList({ action }: Props) {
   const notify = useNotificationStore((state) => state.notify);
   const { data: invitations = [], isLoading, error } = useInvitationsList('PENDING');
   const revoke = useRevokeInvitation();
@@ -33,7 +39,10 @@ export function InvitationsList() {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-semibold">Pending invitations</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">Pending invitations</h2>
+        {action}
+      </div>
       {isLoading ? (
         <p className="text-muted-foreground text-sm">Loading invitations...</p>
       ) : null}
@@ -42,7 +51,7 @@ export function InvitationsList() {
           {getErrorMessage(error, 'Failed to load invitations')}
         </p>
       ) : null}
-      <div className="rounded-lg border">
+      <div className="medical-card-glow bg-card rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>

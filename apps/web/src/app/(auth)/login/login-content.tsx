@@ -60,10 +60,10 @@ export default function LoginPageContent() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-sm space-y-4 rounded-lg border p-4">
+    <div className="medical-gradient-bg flex min-h-screen items-center justify-center p-4">
+      <div className="medical-card-glow bg-card w-full max-w-sm space-y-4 rounded-xl border p-6">
         <div>
-          <h1 className="text-2xl font-bold">Sign in</h1>
+          <h1 className="text-primary text-2xl font-bold">Sign in</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Choose whether you are signing in as a client or provider.
           </p>

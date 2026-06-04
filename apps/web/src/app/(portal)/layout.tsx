@@ -27,13 +27,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   if (!isInitialized || !accessToken) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-zinc-500">Loading...</div>
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>
     );
   }
 
   if (user && user.role !== Role.PATIENT) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-zinc-500">
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
         Redirecting...
       </div>
     );
