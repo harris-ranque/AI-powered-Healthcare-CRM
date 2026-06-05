@@ -2,6 +2,7 @@
 
 import type { ColumnDef, RowData } from '@tanstack/react-table';
 import { ArrowUpDown, EllipsisVertical } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -84,7 +85,20 @@ export const patientColumns: ColumnDef<Patient>[] = [
   {
     id: 'actions',
     header: 'Actions',
-    cell: ({ row, table }) => (
+    cell: ({ row, table }) => <PatientActionsCell patient={row.original} table={table} />,
+  },
+];
+
+function PatientActionsCell({
+  patient,
+  table,
+}: {
+  patient: Patient;
+  table: { options: { meta?: RowActions } };
+}) {
+  const router = useRouter();
+
+  return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon-sm" className="ml-auto">
@@ -93,20 +107,21 @@ export const patientColumns: ColumnDef<Patient>[] = [
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => table.options.meta?.onView(row.original)}>
+          <DropdownMenuItem
+            onClick={() => router.push(`/dashboard/patients/${patient.id}`)}
+          >
             View
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => table.options.meta?.onEdit(row.original)}>
+          <DropdownMenuItem onClick={() => table.options.meta?.onEdit(patient)}>
             Edit
           </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
-            onClick={() => table.options.meta?.onDelete(row.original)}
+            onClick={() => table.options.meta?.onDelete(patient)}
           >
             Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    ),
-  },
-];
+  );
+}

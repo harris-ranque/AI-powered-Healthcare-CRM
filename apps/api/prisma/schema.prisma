@@ -29,6 +29,10 @@ model User {
 
   auditLogs AuditLog[]
 
+  aiRequestLogs AiRequestLog[]
+
+  clinicalNotes ClinicalNote[]
+
   organizationMemberships OrganizationMember[]
   patientProfile          Patient?
   sentInvitations         Invitation[]         @relation("InvitationInviter")
@@ -55,6 +59,8 @@ model Organization {
   files               File[]
   patients            Patient[]
   auditLogs           AuditLog[]
+  aiRequestLogs       AiRequestLog[]
+  clinicalNotes       ClinicalNote[]
   organizationMembers OrganizationMember[]
   invitations         Invitation[]
   apiKeys             ApiKey[]
@@ -101,6 +107,8 @@ model File {
   organization   Organization @relation(fields: [organizationId], references: [id])
   uploadedById   String
   uploadedBy     User         @relation(fields: [uploadedById], references: [id])
+  patientId      String?
+  patient        Patient?     @relation(fields: [patientId], references: [id])
   originalName   String
   mimeType       String
   size           Int
@@ -110,6 +118,7 @@ model File {
 
   @@index([organizationId])
   @@index([uploadedById])
+  @@index([patientId])
 }
 
 model Notification {
@@ -147,6 +156,43 @@ model AuditLog {
   @@index([createdAt])
 }
 
+model AiRequestLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  patientId      String?
+  patient        Patient?     @relation(fields: [patientId], references: [id])
+  noteId         String?
+  prompt         String
+  response       String
+  tokens         Int
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([patientId])
+  @@index([createdAt])
+}
+
+model ClinicalNote {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  patientId      String
+  patient        Patient      @relation(fields: [patientId], references: [id])
+  authorId       String
+  author         User         @relation(fields: [authorId], references: [id])
+  body           String
+  aiSummary      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([patientId, createdAt])
+  @@index([organizationId])
+}
+
 model Patient {
   id             String       @id @default(uuid())
   organizationId String
@@ -162,6 +208,10 @@ model Patient {
   gender      String?
   address     String?
   notes       String?
+
+  files         File[]
+  clinicalNotes ClinicalNote[]
+  aiRequestLogs AiRequestLog[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

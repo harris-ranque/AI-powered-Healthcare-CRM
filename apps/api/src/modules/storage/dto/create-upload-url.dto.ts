@@ -1,4 +1,4 @@
-import { IsNumber, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateUploadUrlDto {
   @IsString()
@@ -9,4 +9,8 @@ export class CreateUploadUrlDto {
 
   @IsNumber()
   size: number;
+
+  @IsOptional()
+  @IsUUID()
+  patientId?: string;
 }

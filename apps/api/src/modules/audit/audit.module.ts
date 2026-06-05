@@ -1,4 +1,5 @@
 import { forwardRef, Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from '../../database/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
@@ -6,16 +7,17 @@ import { OrganizationContextGuard } from '../../common/guards/organization-conte
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { AuditService } from './audit.service';
 import { AuditController } from './audit.controller';
+import { PatientActivityController } from './patient-activity.controller';
 
 @Module({
-  imports: [PrismaModule, forwardRef(() => AuthModule)],
+  imports: [PrismaModule, forwardRef(() => AuthModule), JwtModule],
   providers: [
     AuditService,
     JwtAuthGuard,
     OrganizationContextGuard,
     PermissionsGuard,
   ],
-  controllers: [AuditController],
+  controllers: [AuditController, PatientActivityController],
   exports: [AuditService],
 })
 export class AuditModule {}

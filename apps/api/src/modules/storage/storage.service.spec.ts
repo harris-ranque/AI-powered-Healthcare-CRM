@@ -1,24 +1,60 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { StorageService } from './storage.service';
+import { NotFoundException } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+
+import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { mockPrismaService } from '../../test/testing-utils';
+import { StorageService } from './storage.service';
+
+jest.mock('./r2.client', () => ({
+  r2Client: { send: jest.fn().mockResolvedValue({}) },
+}));
 
 describe('StorageService', () => {
+  const prisma = {
+    client: {
+      patient: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'patient-1' }),
+      },
+    },
+    createFile: jest.fn().mockResolvedValue({
+      id: 'file-1',
+      originalName: 'report.pdf',
+      mimeType: 'application/pdf',
+      patientId: 'patient-1',
+    }),
+    findFilesByPatient: jest.fn().mockResolvedValue([]),
+    findFileById: jest.fn(),
+    deleteFile: jest.fn().mockResolvedValue({ id: 'file-1' }),
+  };
+
+  const auditService = { log: jest.fn() };
+
   let service: StorageService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    jest.clearAllMocks();
+    process.env.R2_BUCKET_NAME = 'bucket';
+    process.env.R2_PUBLIC_URL = 'https://cdn.example.com';
+
+    const module = await Test.createTestingModule({
       providers: [
         StorageService,
-        mockPrismaService,
-        { provide: AuditService, useValue: { log: jest.fn() } },
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: auditService },
       ],
     }).compile();
-
-    service = module.get<StorageService>(StorageService);
+    service = module.get(StorageService);
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+  it('lists files for a patient', async () => {
+    await service.listForPatient('patient-1', 'org-1');
+    expect(prisma.findFilesByPatient).toHaveBeenCalledWith('org-1', 'patient-1');
+  });
+
+  it('throws when deleting a missing file', async () => {
+    prisma.findFileById.mockResolvedValue(null);
+    await expect(
+      service.deleteFile('missing', { organizationId: 'org-1', userId: 'user-1' }),
+    ).rejects.toThrow(NotFoundException);
   });
 });

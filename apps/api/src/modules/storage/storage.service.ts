@@ -1,5 +1,5 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { File as StoredFile } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -43,6 +43,10 @@ export class StorageService {
       throw new BadRequestException('Invalid file type');
     }
 
+    if (dto.patientId) {
+      await this.assertPatientInOrg(dto.patientId, actor.organizationId);
+    }
+
     const bucket = process.env.R2_BUCKET_NAME;
     const publicBaseUrl = process.env.R2_PUBLIC_URL;
     if (!bucket || !publicBaseUrl) {
@@ -64,6 +68,7 @@ export class StorageService {
     const file = await this.prisma.createFile({
       organizationId: actor.organizationId,
       uploadedById: actor.userId,
+      patientId: dto.patientId,
       originalName: dto.fileName,
       mimeType: dto.mimeType,
       size: dto.size,
@@ -80,9 +85,71 @@ export class StorageService {
       metadata: {
         fileName: file.originalName,
         mimeType: file.mimeType,
+        patientId: dto.patientId ?? null,
       },
     });
 
     return { uploadUrl, file };
+  }
+
+  async listForPatient(
+    patientId: string,
+    organizationId: string,
+  ): Promise<StoredFile[]> {
+    await this.assertPatientInOrg(patientId, organizationId);
+    return this.prisma.findFilesByPatient(organizationId, patientId);
+  }
+
+  async deleteFile(
+    fileId: string,
+    actor: UploadActor,
+  ): Promise<{ id: string }> {
+    const file = await this.prisma.findFileById(fileId, actor.organizationId);
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+
+    const bucket = process.env.R2_BUCKET_NAME;
+    if (bucket) {
+      try {
+        await r2Client.send(
+          new DeleteObjectCommand({
+            Bucket: bucket,
+            Key: file.storageKey,
+          }),
+        );
+      } catch {
+        // Best-effort R2 delete; still remove DB row
+      }
+    }
+
+    await this.prisma.deleteFile(file.id);
+
+    await this.auditService.log({
+      userId: actor.userId,
+      organizationId: actor.organizationId,
+      action: 'FILE_DELETED',
+      resource: 'FILE',
+      resourceId: file.id,
+      metadata: {
+        fileName: file.originalName,
+        patientId: file.patientId ?? null,
+      },
+    });
+
+    return { id: file.id };
+  }
+
+  private async assertPatientInOrg(
+    patientId: string,
+    organizationId: string,
+  ): Promise<void> {
+    const patient = await this.prisma.client.patient.findFirst({
+      where: { id: patientId, organizationId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!patient) {
+      throw new NotFoundException('Patient not found');
+    }
   }
 }

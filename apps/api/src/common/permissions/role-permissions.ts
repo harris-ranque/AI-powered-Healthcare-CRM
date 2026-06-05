@@ -17,6 +17,7 @@ const DOCTOR_PERMISSIONS: Permission[] = [
   Permission.FILE_WRITE,
   Permission.CLIENT_INVITE,
   Permission.STAFF_INVITE,
+  Permission.AI_SUMMARY,
 ];
 
 const RECEPTIONIST_PERMISSIONS: Permission[] = [
@@ -25,6 +26,7 @@ const RECEPTIONIST_PERMISSIONS: Permission[] = [
   Permission.FILE_READ,
   Permission.CLIENT_INVITE,
   Permission.STAFF_INVITE,
+  Permission.AI_SUMMARY,
 ];
 
 const CLINIC_OWNER_PERMISSIONS: Permission[] = [

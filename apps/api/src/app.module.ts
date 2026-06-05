@@ -28,6 +28,8 @@ import { MetricsModule } from './modules/metrics/metrics.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { QueuesModule } from './modules/queues/queues.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
+import { AiModule } from './modules/ai/ai.module';
+import { ClinicalNotesModule } from './modules/clinical-notes/clinical-notes.module';
 
 @Module({
   imports: [
@@ -51,6 +53,8 @@ import { InvitationsModule } from './modules/invitations/invitations.module';
     OrganizationsModule,
     InvitationsModule,
     PatientsModule,
+    AiModule,
+    ClinicalNotesModule,
     HealthModule,
     StripeModule,
     ThrottlerModule.forRoot([

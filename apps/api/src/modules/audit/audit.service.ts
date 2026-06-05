@@ -38,4 +38,32 @@ export class AuditService {
       take,
     });
   }
+
+  listForPatient(
+    organizationId: string,
+    patientId: string,
+    options: { take?: number } = {},
+  ): Promise<AuditLog[]> {
+    const take = options.take ?? 100;
+
+    return this.prisma.client.auditLog.findMany({
+      where: {
+        organizationId,
+        OR: [
+          { resource: 'PATIENT', resourceId: patientId },
+          {
+            metadata: {
+              path: ['patientId'],
+              equals: patientId,
+            },
+          },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
 }
