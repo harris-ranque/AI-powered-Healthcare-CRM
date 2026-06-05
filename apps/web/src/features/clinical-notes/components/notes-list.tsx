@@ -4,6 +4,14 @@ import { Pencil, Sparkles, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { Permission, hasPermission } from '@/features/auth/utils/role-permissions';
@@ -14,13 +22,15 @@ import {
   useSummarizeNote,
   useUpdateNote,
 } from '../hooks/use-note-mutations';
-import type { AiSummaryEntry, ClinicalNote } from '../types/clinical-note.type';
+import { useSummarizeText } from '../hooks/use-summarize-text';
+import type { ClinicalNote } from '../types/clinical-note.type';
 
 type Props = {
   patientId: string;
   notes: ClinicalNote[];
-  aiSummaries: AiSummaryEntry[];
 };
+
+const PREVIEW_LENGTH = 240;
 
 function NoteCard({
   note,
@@ -35,9 +45,26 @@ function NoteCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(note.body);
+  const [expanded, setExpanded] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
   const update = useUpdateNote(patientId);
   const remove = useDeleteNote(patientId);
   const summarize = useSummarizeNote(patientId);
+
+  const isLong = note.body.length > PREVIEW_LENGTH;
+  const displayBody =
+    isLong && !expanded ? `${note.body.slice(0, PREVIEW_LENGTH).trimEnd()}…` : note.body;
+
+  const handleSummarize = async () => {
+    try {
+      const result = await summarize.mutateAsync(note.id);
+      setSummary(result.summary);
+      setSummaryOpen(true);
+    } catch {
+      // onError toast is handled inside the mutation
+    }
+  };
 
   return (
     <div className="rounded-lg border p-4">
@@ -57,7 +84,7 @@ function NoteCard({
               variant="outline"
               size="sm"
               disabled={summarize.isPending}
-              onClick={() => void summarize.mutateAsync(note.id)}
+              onClick={() => void handleSummarize()}
             >
               <Sparkles className="mr-1 size-3.5" />
               {summarize.isPending ? 'Summarizing...' : 'Summarize'}
@@ -107,22 +134,118 @@ function NoteCard({
           </div>
         </div>
       ) : (
-        <p className="text-sm whitespace-pre-wrap">{note.body}</p>
+        <>
+          <p className="text-sm whitespace-pre-wrap">{displayBody}</p>
+          {isLong ? (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="text-primary mt-2 text-xs font-medium hover:underline"
+            >
+              {expanded ? 'Show less' : 'Show more'}
+            </button>
+          ) : null}
+        </>
       )}
 
-      {note.aiSummary ? (
-        <div className="bg-muted/40 mt-3 rounded-md border p-3">
-          <p className="text-primary mb-1 text-xs font-semibold tracking-wide uppercase">
-            AI summary
+      <Dialog open={summaryOpen} onOpenChange={setSummaryOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="text-primary size-4" />
+              AI summary
+            </DialogTitle>
+            <DialogDescription>
+              AI-generated summary of this clinical note. This is not a diagnosis.
+            </DialogDescription>
+          </DialogHeader>
+          <p className="max-h-[60vh] overflow-y-auto text-sm whitespace-pre-wrap">
+            {summary ?? note.aiSummary ?? 'No summary available.'}
           </p>
-          <p className="text-sm whitespace-pre-wrap">{note.aiSummary}</p>
+          <DialogFooter showCloseButton />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function AiDocumentationAssistant({ patientId }: { patientId: string }) {
+  const summarizeText = useSummarizeText(patientId);
+  const [draft, setDraft] = useState('');
+  const [summary, setSummary] = useState<string | null>(null);
+  const [tokens, setTokens] = useState<number | null>(null);
+
+  const handleSummarize = () => {
+    summarizeText.mutate(draft, {
+      onSuccess: (result) => {
+        setSummary(result.summary);
+        setTokens(result.tokens);
+      },
+    });
+  };
+
+  const handleClear = () => {
+    setDraft('');
+    setSummary(null);
+    setTokens(null);
+  };
+
+  return (
+    <div className="space-y-3 rounded-lg border p-4">
+      <div>
+        <h4 className="flex items-center gap-2 font-semibold">
+          <Sparkles className="text-primary size-4" />
+          AI documentation assistant
+        </h4>
+        <p className="text-muted-foreground text-sm">
+          Paste clinical notes to get a concise summary. Documentation assistant only — not a
+          diagnosis.
+        </p>
+      </div>
+
+      <Textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="Paste clinical notes here..."
+        rows={6}
+      />
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          disabled={!draft.trim() || summarizeText.isPending}
+          onClick={handleSummarize}
+        >
+          <Sparkles className="mr-2 size-4" />
+          {summarizeText.isPending ? 'Summarizing...' : 'Summarize'}
+        </Button>
+        {summary || draft ? (
+          <Button variant="outline" onClick={handleClear}>
+            Clear
+          </Button>
+        ) : null}
+      </div>
+
+      {summary ? (
+        <div className="bg-muted/40 space-y-2 rounded-md border p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-primary text-xs font-semibold tracking-wide uppercase">
+              AI summary
+            </p>
+            {tokens !== null ? (
+              <span className="text-muted-foreground text-xs">{tokens} tokens</span>
+            ) : null}
+          </div>
+          <p className="text-sm whitespace-pre-wrap">{summary}</p>
+          <p className="text-muted-foreground text-xs">
+            Documentation assistant — not a diagnosis. Do not use for medical decisions.
+          </p>
         </div>
       ) : null}
     </div>
   );
 }
 
-export function NotesList({ patientId, notes, aiSummaries }: Props) {
+export function NotesList({ patientId, notes }: Props) {
   const user = useAuth().user;
   const canWrite = hasPermission(user?.role, Permission.PATIENT_WRITE);
   const canSummarize = hasPermission(user?.role, Permission.AI_SUMMARY);
@@ -134,9 +257,11 @@ export function NotesList({ patientId, notes, aiSummaries }: Props) {
       <div>
         <h3 className="font-semibold">Clinical notes</h3>
         <p className="text-muted-foreground text-sm">
-          Document visits, generate AI summaries, and review history.
+          Document visits and generate AI summaries on demand.
         </p>
       </div>
+
+      {canSummarize ? <AiDocumentationAssistant patientId={patientId} /> : null}
 
       {canWrite ? (
         <div className="space-y-2 rounded-lg border p-4">
@@ -172,28 +297,6 @@ export function NotesList({ patientId, notes, aiSummaries }: Props) {
           ))}
         </div>
       )}
-
-      <div className="space-y-3">
-        <h4 className="font-medium">AI summary history</h4>
-        {aiSummaries.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No AI summaries generated yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {aiSummaries.map((entry) => (
-              <div key={entry.id} className="rounded-lg border p-3 text-sm">
-                <p className="text-muted-foreground mb-1 text-xs">
-                  {new Intl.DateTimeFormat('en-US', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  }).format(new Date(entry.createdAt))}{' '}
-                  · {entry.user?.name ?? entry.user?.email ?? 'Staff'} · {entry.tokens} tokens
-                </p>
-                <p className="whitespace-pre-wrap">{entry.response}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

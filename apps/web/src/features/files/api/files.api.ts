@@ -1,6 +1,10 @@
 import { api } from '@/lib/api/client';
 
-import type { PatientFile, UploadUrlResponse } from '../types/file.type';
+import type {
+  ConfirmUploadInput,
+  PatientFile,
+  UploadUrlResponse,
+} from '../types/file.type';
 
 export type CreateUploadUrlInput = {
   fileName: string;
@@ -19,6 +23,11 @@ export const filesApi = {
 
   createUploadUrl: async (input: CreateUploadUrlInput): Promise<UploadUrlResponse> => {
     const response = await api.post<UploadUrlResponse>('/storage/upload-url', input);
+    return response.data;
+  },
+
+  confirmUpload: async (input: ConfirmUploadInput): Promise<PatientFile> => {
+    const response = await api.post<PatientFile>('/storage/files', input);
     return response.data;
   },
 

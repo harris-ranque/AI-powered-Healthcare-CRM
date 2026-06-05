@@ -24,9 +24,10 @@ export class AiController {
     @CurrentOrganization() organization: OrganizationContext,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.aiService.summarizeNote(dto, {
+    return this.aiService.summarizeAdHoc(dto, {
       organizationId: organization.organizationId,
       userId: req.user.sub,
+      patientId: dto.patientId,
     });
   }
 }

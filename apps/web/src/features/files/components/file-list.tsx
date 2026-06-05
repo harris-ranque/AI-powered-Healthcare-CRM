@@ -8,16 +8,20 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { Permission, hasPermission } from '@/features/auth/utils/role-permissions';
 import { getErrorMessage } from '@/features/notifications/utils/get-error-message';
+import { cn } from '@/lib/utils';
 
 import { filesApi } from '../api/files.api';
 import { useDeleteFile } from '../hooks/use-delete-file';
-import { useUploadFile } from '../hooks/use-upload-file';
+import { useFileUploads } from '../hooks/use-file-uploads';
 import type { PatientFile } from '../types/file.type';
 
 type Props = {
   patientId: string;
   files: PatientFile[];
 };
+
+const ACCEPT =
+  '.pdf,.png,.jpg,.jpeg,.docx,image/png,image/jpeg,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -32,15 +36,63 @@ function FileIcon({ mimeType }: { mimeType: string }) {
   return <FileText className="text-primary size-4" />;
 }
 
+function UploadProgressRow({
+  name,
+  progress,
+  status,
+  error,
+}: {
+  name: string;
+  progress: number;
+  status: string;
+  error?: string;
+}) {
+  const label =
+    status === 'error'
+      ? (error ?? 'Upload failed')
+      : status === 'done'
+        ? 'Complete'
+        : status === 'confirming'
+          ? 'Saving...'
+          : status === 'uploading'
+            ? `Uploading ${progress}%`
+            : 'Waiting...';
+
+  return (
+    <div className="space-y-1.5 rounded-md border p-3">
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <span className="truncate font-medium">{name}</span>
+        <span
+          className={cn(
+            'shrink-0 text-xs',
+            status === 'error' ? 'text-destructive' : 'text-muted-foreground',
+          )}
+        >
+          {label}
+        </span>
+      </div>
+      {status !== 'error' && status !== 'done' ? (
+        <div className="bg-muted h-1.5 overflow-hidden rounded-full">
+          <div
+            className="bg-primary h-full rounded-full transition-all duration-200"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function FileList({ patientId, files }: Props) {
   const user = useAuth().user;
   const canUpload = hasPermission(user?.role, Permission.FILE_WRITE);
   const canDelete = hasPermission(user?.role, Permission.FILE_DELETE);
   const canRead = hasPermission(user?.role, Permission.FILE_READ);
   const inputRef = useRef<HTMLInputElement>(null);
-  const upload = useUploadFile(patientId);
+  const { uploads, upload, isUploading, clearCompleted } = useFileUploads(patientId);
   const remove = useDeleteFile(patientId);
   const [openingFileId, setOpeningFileId] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   const openFile = async (file: PatientFile) => {
     if (!canRead) return;
@@ -55,39 +107,118 @@ export function FileList({ patientId, files }: Props) {
     }
   };
 
+  const handleFiles = (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    void upload(Array.from(fileList));
+  };
+
+  const activeUploads = uploads.filter(
+    (task) => task.status !== 'done' && task.status !== 'error',
+  );
+  const finishedUploads = uploads.filter(
+    (task) => task.status === 'done' || task.status === 'error',
+  );
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <h3 className="font-semibold">Uploaded files</h3>
-          <p className="text-muted-foreground text-sm">Reports, PDFs, scans, and documents.</p>
-        </div>
-        {canUpload ? (
-          <>
-            <input
-              ref={inputRef}
-              type="file"
-              className="hidden"
-              accept=".pdf,.png,.jpg,.jpeg,image/png,image/jpeg,application/pdf"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) {
-                  void upload.mutateAsync(file);
-                }
-                event.target.value = '';
-              }}
-            />
-            <Button
-              variant="outline"
-              disabled={upload.isPending}
-              onClick={() => inputRef.current?.click()}
-            >
-              <Upload className="mr-2 size-4" />
-              {upload.isPending ? 'Uploading...' : 'Upload file'}
-            </Button>
-          </>
-        ) : null}
+      <div>
+        <h3 className="font-semibold">Uploaded files</h3>
+        <p className="text-muted-foreground text-sm">
+          Reports, PDFs, scans, and documents. PDF, JPEG, PNG, and DOCX up to 10MB.
+        </p>
       </div>
+
+      {canUpload ? (
+        <>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            className="hidden"
+            accept={ACCEPT}
+            onChange={(event) => {
+              handleFiles(event.target.files);
+              event.target.value = '';
+            }}
+          />
+          <div
+            role="button"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                inputRef.current?.click();
+              }
+            }}
+            onClick={() => inputRef.current?.click()}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={(event) => {
+              event.preventDefault();
+              setDragActive(false);
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDragActive(false);
+              handleFiles(event.dataTransfer.files);
+            }}
+            className={cn(
+              'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 text-center transition-colors',
+              dragActive
+                ? 'border-primary bg-primary/5'
+                : 'border-muted-foreground/25 hover:border-primary/40 hover:bg-muted/30',
+            )}
+          >
+            <Upload className="text-muted-foreground size-8" />
+            <div>
+              <p className="font-medium">Drag and drop files here</p>
+              <p className="text-muted-foreground text-sm">or click to browse</p>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {activeUploads.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Uploading</p>
+          {activeUploads.map((task) => (
+            <UploadProgressRow
+              key={task.id}
+              name={task.name}
+              progress={task.progress}
+              status={task.status}
+              error={task.error}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {finishedUploads.length > 0 ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-muted-foreground text-sm">Recent uploads</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isUploading}
+              onClick={clearCompleted}
+            >
+              Clear
+            </Button>
+          </div>
+          {finishedUploads.map((task) => (
+            <UploadProgressRow
+              key={task.id}
+              name={task.name}
+              progress={task.progress}
+              status={task.status}
+              error={task.error}
+            />
+          ))}
+        </div>
+      ) : null}
 
       {files.length === 0 ? (
         <p className="text-muted-foreground text-sm">No files uploaded yet.</p>
@@ -145,7 +276,7 @@ export function FileList({ patientId, files }: Props) {
                   variant="ghost"
                   size="icon-sm"
                   disabled={remove.isPending}
-                  onClick={() => void remove.mutateAsync(file.id)}
+                  onClick={() => remove.mutate(file.id)}
                 >
                   <Trash2 className="size-4" />
                 </Button>

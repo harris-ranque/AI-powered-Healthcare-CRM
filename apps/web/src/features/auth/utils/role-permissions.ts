@@ -14,6 +14,8 @@ export const Permission = {
   CLIENT_INVITE: 'client:invite',
   STAFF_INVITE: 'staff:invite',
   AI_SUMMARY: 'ai:summary',
+  APPOINTMENT_READ: 'appointment:read',
+  APPOINTMENT_WRITE: 'appointment:write',
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
@@ -26,6 +28,8 @@ const DOCTOR_PERMISSIONS: Permission[] = [
   Permission.CLIENT_INVITE,
   Permission.STAFF_INVITE,
   Permission.AI_SUMMARY,
+  Permission.APPOINTMENT_READ,
+  Permission.APPOINTMENT_WRITE,
 ];
 
 const RECEPTIONIST_PERMISSIONS: Permission[] = [
@@ -35,6 +39,8 @@ const RECEPTIONIST_PERMISSIONS: Permission[] = [
   Permission.CLIENT_INVITE,
   Permission.STAFF_INVITE,
   Permission.AI_SUMMARY,
+  Permission.APPOINTMENT_READ,
+  Permission.APPOINTMENT_WRITE,
 ];
 
 const CLINIC_OWNER_PERMISSIONS: Permission[] = [

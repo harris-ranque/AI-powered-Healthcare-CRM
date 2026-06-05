@@ -85,13 +85,26 @@ The `/dashboard/patients/[id]` page opens from the Patients table **View** actio
 | Tab | Source | Notes |
 |-----|--------|-------|
 | **Overview** | `GET /patients/:id` | Patient info, contact info, and metadata (IDs, timestamps, status). |
-| **Files** | `GET` / `POST` / `DELETE /storage/files`, `POST /storage/upload-url` | Reports/PDFs/attachments scoped to the patient via `File.patientId`; presigned R2 upload (PDF/JPEG/PNG, 10MB). |
+| **Files** | `GET` / `POST` / `DELETE /storage/files`, `POST /storage/upload-url`, `GET /storage/files/:id/download-url` | Reports/PDFs/scans/attachments scoped to the patient via `File.patientId`; drag-and-drop, multi-file presigned R2 upload (PDF/JPEG/PNG/DOCX, 10MB). |
 | **Notes** | `GET` / `POST /patients/:id/notes`, `PATCH` / `DELETE /notes/:noteId`, `POST /notes/:noteId/summarize` | Multiple timestamped `ClinicalNote` records; each can generate an AI summary via `AiService`. |
 | **Activity** | `GET /patients/:id/activity` | Patient-scoped audit timeline (patient, file, note, and AI events). |
 
 - **AI history** — `GET /patients/:id/ai-summaries` lists `AiRequestLog` rows (linked by `patientId` / `noteId`).
 - **Permissions** — Overview/Notes/Activity use `PATIENT_READ` (view) and `PATIENT_WRITE` (edit); files use `FILE_READ` / `FILE_WRITE` / `FILE_DELETE`; summaries use `AI_SUMMARY`.
 - **Activity correlation** — file/note/AI audit logs carry `metadata.patientId`, so the timeline aggregates cross-resource events for one patient without granting the org-wide `AUDIT_READ`.
+
+### File upload flow
+
+![Patient file upload flow](docs/images/file-upload-flow.png)
+
+Uploads use a deferred, organization-isolated flow so metadata is only persisted after the object lands in R2:
+
+1. **Pick / drop files** — drag-and-drop or the file picker accepts multiple files (PDF/JPEG/PNG/DOCX).
+2. **Client validation** — mime type and 10MB size cap are checked before any request.
+3. **`POST /storage/upload-url`** — returns a short-lived presigned `uploadUrl` plus an org-scoped `storageKey` (`{organizationId}/{uuid}.{ext}`); no DB row yet.
+4. **XHR `PUT` to R2** — the file is uploaded directly to storage with per-file progress.
+5. **`POST /storage/files`** — confirms the upload: verifies the key is org-owned, `HeadObject` checks the object exists, then persists the `File` row and writes a `FILE_UPLOADED` audit entry.
+6. **Invalidate** — the patient detail query refreshes so the new file appears in the list.
 
 ### Token handling
 

@@ -24,6 +24,9 @@ export const Permission = {
   STAFF_INVITE: 'staff:invite',
 
   AI_SUMMARY: 'ai:summary',
+
+  APPOINTMENT_READ: 'appointment:read',
+  APPOINTMENT_WRITE: 'appointment:write',
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];

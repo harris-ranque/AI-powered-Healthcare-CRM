@@ -11,6 +11,7 @@ import OpenAI from 'openai';
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { OPENAI_CLIENT } from './ai.client';
 import {
   DEFAULT_OPENAI_MODEL,
@@ -50,7 +51,36 @@ export class AiService {
     @Inject(OPENAI_CLIENT) private readonly openai: OpenAI | null,
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
   ) {}
+
+  async summarizeAdHoc(
+    dto: MedicalNoteSummaryDto,
+    actor: SummarizeNoteActor,
+  ): Promise<MedicalNoteSummaryResult> {
+    if (actor.patientId) {
+      await this.assertPatientInOrg(actor.patientId, actor.organizationId);
+    }
+
+    const result = await this.summarizeNote(dto, actor);
+
+    if (actor.patientId) {
+      await this.auditService.log({
+        userId: actor.userId,
+        organizationId: actor.organizationId,
+        action: 'AI_SUMMARIZED',
+        resource: 'PATIENT',
+        resourceId: actor.patientId,
+        metadata: {
+          patientId: actor.patientId,
+          tokens: result.tokens,
+          source: 'adhoc',
+        },
+      });
+    }
+
+    return result;
+  }
 
   async summarizeNote(
     dto: MedicalNoteSummaryDto,
@@ -119,5 +149,18 @@ export class AiService {
       take: 50,
       select: aiSummaryUserSelect,
     });
+  }
+
+  private async assertPatientInOrg(
+    patientId: string,
+    organizationId: string,
+  ): Promise<void> {
+    const patient = await this.prisma.client.patient.findFirst({
+      where: { id: patientId, organizationId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!patient) {
+      throw new NotFoundException('Patient not found');
+    }
   }
 }

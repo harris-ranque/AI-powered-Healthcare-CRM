@@ -13,5 +13,13 @@ export type PatientFile = {
 
 export type UploadUrlResponse = {
   uploadUrl: string;
-  file: PatientFile;
+  storageKey: string;
+};
+
+export type ConfirmUploadInput = {
+  fileName: string;
+  mimeType: string;
+  size: number;
+  storageKey: string;
+  patientId: string;
 };

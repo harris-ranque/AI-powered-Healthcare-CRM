@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { Prisma, type AuditLog } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
@@ -44,6 +43,20 @@ export class AuditService {
       },
       orderBy: { createdAt: 'desc' },
       take,
+    });
+  }
+
+  listForOrganization(
+    organizationId: string,
+    options: { take?: number } = {},
+  ): Promise<AuditLogWithUser[]> {
+    const take = options.take ?? 100;
+
+    return this.prisma.client.auditLog.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: 'desc' },
+      take,
+      include: auditUserInclude,
     });
   }
 

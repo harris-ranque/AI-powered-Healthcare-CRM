@@ -30,6 +30,8 @@ import { QueuesModule } from './modules/queues/queues.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
 import { AiModule } from './modules/ai/ai.module';
 import { ClinicalNotesModule } from './modules/clinical-notes/clinical-notes.module';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -55,6 +57,8 @@ import { ClinicalNotesModule } from './modules/clinical-notes/clinical-notes.mod
     PatientsModule,
     AiModule,
     ClinicalNotesModule,
+    AppointmentsModule,
+    DashboardModule,
     HealthModule,
     StripeModule,
     ThrottlerModule.forRoot([

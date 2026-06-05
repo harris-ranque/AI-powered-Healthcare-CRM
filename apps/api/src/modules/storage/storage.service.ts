@@ -1,23 +1,41 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { File as StoredFile } from '@prisma/client';
+import { Prisma, type File as StoredFile } from '@prisma/client';
 import { randomUUID } from 'crypto';
 
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { r2Client } from './r2.client';
+import type { ConfirmUploadDto } from './dto/confirm-upload.dto';
 import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
 const UPLOAD_URL_TTL_SECONDS = 60 * 5;
 const DOWNLOAD_URL_TTL_SECONDS = 60 * 5;
 const DANGEROUS_EXTENSIONS = new Set(['exe', 'bat', 'sh', 'cmd']);
+
+type FileMetaInput = {
+  fileName: string;
+  mimeType: string;
+  size: number;
+};
 
 export type UploadActor = {
   organizationId: string;
@@ -34,30 +52,19 @@ export class StorageService {
   async createUploadUrl(
     dto: CreateUploadUrlDto,
     actor: UploadActor,
-  ): Promise<{ uploadUrl: string; file: StoredFile }> {
-    if (dto.size > MAX_FILE_SIZE_BYTES) {
-      throw new BadRequestException('File too large');
-    }
-
-    if (!ALLOWED_MIME_TYPES.includes(dto.mimeType)) {
-      throw new BadRequestException('Invalid file type');
-    }
-
-    const extension = dto.fileName.split('.').pop() ?? 'bin';
-    if (DANGEROUS_EXTENSIONS.has(extension)) {
-      throw new BadRequestException('Invalid file type');
-    }
+  ): Promise<{ uploadUrl: string; storageKey: string }> {
+    this.validateFileMeta(dto);
 
     if (dto.patientId) {
       await this.assertPatientInOrg(dto.patientId, actor.organizationId);
     }
 
     const bucket = process.env.R2_BUCKET_NAME;
-    const publicBaseUrl = process.env.R2_PUBLIC_URL;
-    if (!bucket || !publicBaseUrl) {
+    if (!bucket) {
       throw new BadRequestException('Storage is not configured');
     }
 
+    const extension = dto.fileName.split('.').pop() ?? 'bin';
     const storageKey = `${actor.organizationId}/${randomUUID()}.${extension}`;
     const command = new PutObjectCommand({
       Bucket: bucket,
@@ -69,32 +76,90 @@ export class StorageService {
       expiresIn: UPLOAD_URL_TTL_SECONDS,
     });
 
-    const publicUrl = `${publicBaseUrl}/${storageKey}`;
-    const file = await this.prisma.createFile({
-      organizationId: actor.organizationId,
-      uploadedById: actor.userId,
-      patientId: dto.patientId,
-      originalName: dto.fileName,
-      mimeType: dto.mimeType,
-      size: dto.size,
-      storageKey,
-      publicUrl,
-    });
+    return { uploadUrl, storageKey };
+  }
 
-    await this.auditService.log({
-      userId: actor.userId,
-      organizationId: actor.organizationId,
-      action: 'FILE_UPLOADED',
-      resource: 'FILE',
-      resourceId: file.id,
-      metadata: {
-        fileName: file.originalName,
-        mimeType: file.mimeType,
-        patientId: dto.patientId ?? null,
-      },
-    });
+  async confirmUpload(
+    dto: ConfirmUploadDto,
+    actor: UploadActor,
+  ): Promise<StoredFile> {
+    this.validateFileMeta(dto);
 
-    return { uploadUrl, file };
+    if (dto.patientId) {
+      await this.assertPatientInOrg(dto.patientId, actor.organizationId);
+    }
+
+    const orgPrefix = `${actor.organizationId}/`;
+    if (!dto.storageKey.startsWith(orgPrefix)) {
+      throw new BadRequestException('Invalid storage key');
+    }
+
+    const bucket = process.env.R2_BUCKET_NAME;
+    const publicBaseUrl = process.env.R2_PUBLIC_URL;
+    if (!bucket || !publicBaseUrl) {
+      throw new BadRequestException('Storage is not configured');
+    }
+
+    let contentLength: number;
+    try {
+      const head = await r2Client.send(
+        new HeadObjectCommand({
+          Bucket: bucket,
+          Key: dto.storageKey,
+        }),
+      );
+      if (head.ContentLength === undefined) {
+        throw new BadRequestException('Upload not found');
+      }
+      contentLength = head.ContentLength;
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Upload not found');
+    }
+
+    if (contentLength > MAX_FILE_SIZE_BYTES) {
+      throw new BadRequestException('File too large');
+    }
+
+    const publicUrl = `${publicBaseUrl}/${dto.storageKey}`;
+
+    try {
+      const file = await this.prisma.createFile({
+        organizationId: actor.organizationId,
+        uploadedById: actor.userId,
+        patientId: dto.patientId,
+        originalName: dto.fileName,
+        mimeType: dto.mimeType,
+        size: contentLength,
+        storageKey: dto.storageKey,
+        publicUrl,
+      });
+
+      await this.auditService.log({
+        userId: actor.userId,
+        organizationId: actor.organizationId,
+        action: 'FILE_UPLOADED',
+        resource: 'FILE',
+        resourceId: file.id,
+        metadata: {
+          fileName: file.originalName,
+          mimeType: file.mimeType,
+          patientId: dto.patientId ?? null,
+        },
+      });
+
+      return file;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('File already registered');
+      }
+      throw error;
+    }
   }
 
   async listForPatient(
@@ -171,6 +236,21 @@ export class StorageService {
     });
 
     return { id: file.id };
+  }
+
+  private validateFileMeta(dto: FileMetaInput): void {
+    if (dto.size > MAX_FILE_SIZE_BYTES) {
+      throw new BadRequestException('File too large');
+    }
+
+    if (!ALLOWED_MIME_TYPES.includes(dto.mimeType)) {
+      throw new BadRequestException('Invalid file type');
+    }
+
+    const extension = dto.fileName.split('.').pop()?.toLowerCase() ?? 'bin';
+    if (DANGEROUS_EXTENSIONS.has(extension)) {
+      throw new BadRequestException('Invalid file type');
+    }
   }
 
   private async assertPatientInOrg(

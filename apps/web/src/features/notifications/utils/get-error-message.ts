@@ -20,5 +20,9 @@ export function getErrorMessage(
     }
   }
 
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
   return fallback;
 }

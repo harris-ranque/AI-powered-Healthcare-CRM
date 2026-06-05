@@ -36,6 +36,7 @@ model User {
   organizationMemberships OrganizationMember[]
   patientProfile          Patient?
   sentInvitations         Invitation[]         @relation("InvitationInviter")
+  appointments            Appointment[]        @relation("AppointmentProvider")
 }
 
 model Organization {
@@ -63,6 +64,7 @@ model Organization {
   clinicalNotes       ClinicalNote[]
   organizationMembers OrganizationMember[]
   invitations         Invitation[]
+  appointments        Appointment[]
   apiKeys             ApiKey[]
 
   // =========================
@@ -212,6 +214,7 @@ model Patient {
   files         File[]
   clinicalNotes ClinicalNote[]
   aiRequestLogs AiRequestLog[]
+  appointments  Appointment[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -223,6 +226,26 @@ model Patient {
   @@index([organizationId])
   @@index([organizationId, deletedAt])
   @@index([organizationId, lastName, firstName])
+}
+
+model Appointment {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  patientId      String
+  patient        Patient      @relation(fields: [patientId], references: [id])
+  providerId     String?
+  provider       User?        @relation("AppointmentProvider", fields: [providerId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime?
+  status         String       @default("SCHEDULED")
+  reason         String?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, startsAt])
+  @@index([patientId])
 }
 
 model OrganizationMember {

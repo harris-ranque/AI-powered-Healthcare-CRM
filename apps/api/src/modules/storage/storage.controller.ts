@@ -21,6 +21,7 @@ import type { AuthenticatedRequest } from '../../common/types/authenticated-requ
 import type { OrganizationContext } from '../../common/types/organization-context.type';
 
 import { StorageService } from './storage.service';
+import { ConfirmUploadDto } from './dto/confirm-upload.dto';
 import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 import { ListFilesDto } from './dto/list-files.dto';
 
@@ -37,6 +38,19 @@ export class StorageController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.storageService.createUploadUrl(dto, {
+      organizationId: organization.organizationId,
+      userId: req.user.sub,
+    });
+  }
+
+  @Post('files')
+  @RequirePermissions(Permission.FILE_WRITE)
+  confirmUpload(
+    @Body() dto: ConfirmUploadDto,
+    @CurrentOrganization() organization: OrganizationContext,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.storageService.confirmUpload(dto, {
       organizationId: organization.organizationId,
       userId: req.user.sub,
     });

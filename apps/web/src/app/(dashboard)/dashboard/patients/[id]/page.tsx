@@ -66,7 +66,7 @@ export default function PatientDetailPage() {
     );
   }
 
-  const { patient, files, notes, aiSummaries, activity } = detail;
+  const { patient, files, notes, activity } = detail;
 
   return (
     <div className="space-y-6">
@@ -114,7 +114,7 @@ export default function PatientDetailPage() {
           <PatientOverview patient={patient} />
         </TabsContent>
         <TabsContent value="notes">
-          <NotesList patientId={patient.id} notes={notes} aiSummaries={aiSummaries} />
+          <NotesList patientId={patient.id} notes={notes} />
         </TabsContent>
         <TabsContent value="files">
           <FileList patientId={patient.id} files={files} />

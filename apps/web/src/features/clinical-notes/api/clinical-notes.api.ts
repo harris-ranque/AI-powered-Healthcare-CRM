@@ -36,4 +36,15 @@ export const clinicalNotesApi = {
     const response = await api.get<AiSummaryEntry[]>(`/patients/${patientId}/ai-summaries`);
     return response.data;
   },
+
+  summarizeText: async (input: {
+    notes: string;
+    patientId: string;
+  }): Promise<{ summary: string; tokens: number }> => {
+    const response = await api.post<{ summary: string; tokens: number }>(
+      '/ai/medical-note-summary',
+      input,
+    );
+    return response.data;
+  },
 };
