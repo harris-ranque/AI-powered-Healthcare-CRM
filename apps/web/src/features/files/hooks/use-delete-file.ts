@@ -3,8 +3,9 @@ import { toast } from 'sonner';
 
 import { getErrorMessage } from '@/features/notifications/utils/get-error-message';
 
+import { patientsQueryKeys } from '@/features/patients/hooks/query-keys';
+
 import { filesApi } from '../api/files.api';
-import { filesQueryKeys } from './query-keys';
 
 export function useDeleteFile(patientId: string) {
   const queryClient = useQueryClient();
@@ -13,7 +14,9 @@ export function useDeleteFile(patientId: string) {
     mutationFn: (fileId: string) => filesApi.delete(fileId),
     onSuccess: async () => {
       toast.success('File deleted');
-      await queryClient.invalidateQueries({ queryKey: filesQueryKeys.patient(patientId) });
+      await queryClient.invalidateQueries({
+        queryKey: patientsQueryKeys.detail(patientId),
+      });
     },
     onError: (error) => toast.error(getErrorMessage(error, 'Failed to delete file')),
   });

@@ -1,5 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { File as StoredFile } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -12,6 +16,7 @@ import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const UPLOAD_URL_TTL_SECONDS = 60 * 5;
+const DOWNLOAD_URL_TTL_SECONDS = 60 * 5;
 const DANGEROUS_EXTENSIONS = new Set(['exe', 'bat', 'sh', 'cmd']);
 
 export type UploadActor = {
@@ -98,6 +103,34 @@ export class StorageService {
   ): Promise<StoredFile[]> {
     await this.assertPatientInOrg(patientId, organizationId);
     return this.prisma.findFilesByPatient(organizationId, patientId);
+  }
+
+  async getDownloadUrl(
+    fileId: string,
+    organizationId: string,
+  ): Promise<{ url: string; expiresIn: number }> {
+    const file = await this.prisma.findFileById(fileId, organizationId);
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+
+    const bucket = process.env.R2_BUCKET_NAME;
+    if (!bucket) {
+      throw new BadRequestException('Storage is not configured');
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: file.storageKey,
+      ResponseContentDisposition: `inline; filename="${file.originalName}"`,
+      ResponseContentType: file.mimeType,
+    });
+
+    const url = await getSignedUrl(r2Client, command, {
+      expiresIn: DOWNLOAD_URL_TTL_SECONDS,
+    });
+
+    return { url, expiresIn: DOWNLOAD_URL_TTL_SECONDS };
   }
 
   async deleteFile(

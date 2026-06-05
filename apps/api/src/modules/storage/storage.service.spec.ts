@@ -5,6 +5,10 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from './storage.service';
 
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: jest.fn().mockResolvedValue('https://signed.example.com/file'),
+}));
+
 jest.mock('./r2.client', () => ({
   r2Client: { send: jest.fn().mockResolvedValue({}) },
 }));
@@ -56,5 +60,22 @@ describe('StorageService', () => {
     await expect(
       service.deleteFile('missing', { organizationId: 'org-1', userId: 'user-1' }),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('returns a presigned download URL for an owned file', async () => {
+    prisma.findFileById.mockResolvedValue({
+      id: 'file-1',
+      storageKey: 'org-1/key.pdf',
+      originalName: 'report.pdf',
+      mimeType: 'application/pdf',
+    });
+
+    const result = await service.getDownloadUrl('file-1', 'org-1');
+
+    expect(prisma.findFileById).toHaveBeenCalledWith('file-1', 'org-1');
+    expect(result).toEqual({
+      url: 'https://signed.example.com/file',
+      expiresIn: 300,
+    });
   });
 });

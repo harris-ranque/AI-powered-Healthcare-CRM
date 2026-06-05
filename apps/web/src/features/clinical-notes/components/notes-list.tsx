@@ -14,12 +14,12 @@ import {
   useSummarizeNote,
   useUpdateNote,
 } from '../hooks/use-note-mutations';
-import { usePatientAiSummaries } from '../hooks/use-patient-ai-summaries';
-import { usePatientNotes } from '../hooks/use-patient-notes';
-import type { ClinicalNote } from '../types/clinical-note.type';
+import type { AiSummaryEntry, ClinicalNote } from '../types/clinical-note.type';
 
 type Props = {
   patientId: string;
+  notes: ClinicalNote[];
+  aiSummaries: AiSummaryEntry[];
 };
 
 function NoteCard({
@@ -122,12 +122,10 @@ function NoteCard({
   );
 }
 
-export function NotesList({ patientId }: Props) {
+export function NotesList({ patientId, notes, aiSummaries }: Props) {
   const user = useAuth().user;
   const canWrite = hasPermission(user?.role, Permission.PATIENT_WRITE);
   const canSummarize = hasPermission(user?.role, Permission.AI_SUMMARY);
-  const { data: notes = [], isLoading } = usePatientNotes(patientId);
-  const { data: aiSummaries = [] } = usePatientAiSummaries(patientId);
   const create = useCreateNote(patientId);
   const [newBody, setNewBody] = useState('');
 
@@ -135,7 +133,9 @@ export function NotesList({ patientId }: Props) {
     <div className="space-y-6">
       <div>
         <h3 className="font-semibold">Clinical notes</h3>
-        <p className="text-muted-foreground text-sm">Document visits and generate AI summaries.</p>
+        <p className="text-muted-foreground text-sm">
+          Document visits, generate AI summaries, and review history.
+        </p>
       </div>
 
       {canWrite ? (
@@ -157,9 +157,7 @@ export function NotesList({ patientId }: Props) {
         </div>
       ) : null}
 
-      {isLoading ? (
-        <p className="text-muted-foreground text-sm">Loading notes...</p>
-      ) : notes.length === 0 ? (
+      {notes.length === 0 ? (
         <p className="text-muted-foreground text-sm">No clinical notes yet.</p>
       ) : (
         <div className="space-y-3">
@@ -188,7 +186,7 @@ export function NotesList({ patientId }: Props) {
                     dateStyle: 'medium',
                     timeStyle: 'short',
                   }).format(new Date(entry.createdAt))}{' '}
-                  · {entry.tokens} tokens
+                  · {entry.user?.name ?? entry.user?.email ?? 'Staff'} · {entry.tokens} tokens
                 </p>
                 <p className="whitespace-pre-wrap">{entry.response}</p>
               </div>

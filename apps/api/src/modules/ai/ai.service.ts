@@ -8,6 +8,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 
+import { Prisma } from '@prisma/client';
+
 import { PrismaService } from '../../database/prisma.service';
 import { OPENAI_CLIENT } from './ai.client';
 import {
@@ -27,6 +29,20 @@ export type MedicalNoteSummaryResult = {
   summary: string;
   tokens: number;
 };
+
+const aiSummaryUserSelect = {
+  id: true,
+  prompt: true,
+  response: true,
+  tokens: true,
+  noteId: true,
+  createdAt: true,
+  user: { select: { id: true, name: true, email: true } },
+} as const;
+
+export type AiSummaryWithUser = Prisma.AiRequestLogGetPayload<{
+  select: typeof aiSummaryUserSelect;
+}>;
 
 @Injectable()
 export class AiService {
@@ -88,7 +104,7 @@ export class AiService {
   async listForPatient(
     patientId: string,
     organizationId: string,
-  ) {
+  ): Promise<AiSummaryWithUser[]> {
     const patient = await this.prisma.client.patient.findFirst({
       where: { id: patientId, organizationId, deletedAt: null },
       select: { id: true },
@@ -101,15 +117,7 @@ export class AiService {
       where: { patientId, organizationId },
       orderBy: { createdAt: 'desc' },
       take: 50,
-      select: {
-        id: true,
-        prompt: true,
-        response: true,
-        tokens: true,
-        noteId: true,
-        createdAt: true,
-        user: { select: { id: true, name: true, email: true } },
-      },
+      select: aiSummaryUserSelect,
     });
   }
 }

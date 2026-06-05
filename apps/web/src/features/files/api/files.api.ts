@@ -26,4 +26,11 @@ export const filesApi = {
     const response = await api.delete<{ id: string }>(`/storage/files/${id}`);
     return response.data;
   },
+
+  getDownloadUrl: async (id: string): Promise<{ url: string; expiresIn: number }> => {
+    const response = await api.get<{ url: string; expiresIn: number }>(
+      `/storage/files/${id}/download-url`,
+    );
+    return response.data;
+  },
 };

@@ -3,7 +3,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../../database/prisma.service';
 import { mockPrismaService } from '../../test/testing-utils';
+import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
+import { ClinicalNotesService } from '../clinical-notes/clinical-notes.service';
+import { StorageService } from '../storage/storage.service';
 
 import { ListPatientsDto } from './dto/list-patients.dto';
 import { PatientsService } from './patients.service';
@@ -19,18 +22,29 @@ describe('PatientsService', () => {
     delete: jest.Mock;
   };
   let auditLog: jest.Mock;
+  let listNotes: jest.Mock;
+  let listFiles: jest.Mock;
+  let listAiSummaries: jest.Mock;
+  let listActivity: jest.Mock;
 
   const ORG_ID = 'org-1';
   const USER_ID = 'user-1';
 
   beforeEach(async () => {
     auditLog = jest.fn();
+    listNotes = jest.fn().mockResolvedValue([]);
+    listFiles = jest.fn().mockResolvedValue([]);
+    listAiSummaries = jest.fn().mockResolvedValue([]);
+    listActivity = jest.fn().mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PatientsService,
         mockPrismaService,
-        { provide: AuditService, useValue: { log: auditLog } },
+        { provide: AuditService, useValue: { log: auditLog, listForPatient: listActivity } },
+        { provide: ClinicalNotesService, useValue: { listForPatient: listNotes } },
+        { provide: StorageService, useValue: { listForPatient: listFiles } },
+        { provide: AiService, useValue: { listForPatient: listAiSummaries } },
       ],
     }).compile();
 
@@ -191,6 +205,41 @@ describe('PatientsService', () => {
       expect(prismaPatient.findFirst).toHaveBeenCalledWith({
         where: { id: 'missing-id', organizationId: ORG_ID, deletedAt: null },
       });
+    });
+  });
+
+  describe('getDetail()', () => {
+    it('aggregates patient, files, notes, ai summaries, and activity', async () => {
+      const patient = {
+        id: 'p1',
+        organizationId: ORG_ID,
+        firstName: 'Jane',
+        lastName: 'Doe',
+      };
+      const files = [{ id: 'file-1' }];
+      const notes = [{ id: 'note-1' }];
+      const aiSummaries = [{ id: 'ai-1' }];
+      const activity = [{ id: 'audit-1' }];
+
+      prismaPatient.findFirst.mockResolvedValue(patient);
+      listFiles.mockResolvedValue(files);
+      listNotes.mockResolvedValue(notes);
+      listAiSummaries.mockResolvedValue(aiSummaries);
+      listActivity.mockResolvedValue(activity);
+
+      const result = await service.getDetail('p1', ORG_ID);
+
+      expect(result).toEqual({
+        patient,
+        files,
+        notes,
+        aiSummaries,
+        activity,
+      });
+      expect(listFiles).toHaveBeenCalledWith('p1', ORG_ID);
+      expect(listNotes).toHaveBeenCalledWith('p1', ORG_ID);
+      expect(listAiSummaries).toHaveBeenCalledWith('p1', ORG_ID);
+      expect(listActivity).toHaveBeenCalledWith(ORG_ID, 'p1');
     });
   });
 });

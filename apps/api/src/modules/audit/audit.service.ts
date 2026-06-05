@@ -1,8 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import type { AuditLog } from '@prisma/client';
+import { Prisma, type AuditLog } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
+
+const auditUserInclude = {
+  user: { select: { id: true, name: true, email: true } },
+} as const;
+
+export type AuditLogWithUser = Prisma.AuditLogGetPayload<{
+  include: typeof auditUserInclude;
+}>;
 
 export type AuditLogInput = {
   userId?: string;
@@ -43,7 +51,7 @@ export class AuditService {
     organizationId: string,
     patientId: string,
     options: { take?: number } = {},
-  ): Promise<AuditLog[]> {
+  ): Promise<AuditLogWithUser[]> {
     const take = options.take ?? 100;
 
     return this.prisma.client.auditLog.findMany({
@@ -61,9 +69,7 @@ export class AuditService {
       },
       orderBy: { createdAt: 'desc' },
       take,
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-      },
+      include: auditUserInclude,
     });
   }
 }

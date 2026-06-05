@@ -27,6 +27,7 @@ import { ListPatientsDto } from './dto/list-patients.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { PatientsService } from './patients.service';
 import type { Paginated } from './types/paginated.type';
+import type { PatientDetail } from './types/patient-detail.type';
 
 @Controller('patients')
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionsGuard)
@@ -47,8 +48,8 @@ export class PatientsController {
   getById(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentOrganization() organization: OrganizationContext,
-  ): Promise<Patient> {
-    return this.patientsService.getById(id, organization.organizationId);
+  ): Promise<PatientDetail> {
+    return this.patientsService.getDetail(id, organization.organizationId);
   }
 
   @Post()

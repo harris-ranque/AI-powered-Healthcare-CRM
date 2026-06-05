@@ -6,7 +6,10 @@ import {
 import { Prisma, type Patient } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
+import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
+import { ClinicalNotesService } from '../clinical-notes/clinical-notes.service';
+import { StorageService } from '../storage/storage.service';
 
 import { CreatePatientDto } from './dto/create-patient.dto';
 import {
@@ -17,6 +20,7 @@ import {
 } from './dto/list-patients.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { paginate, type Paginated } from './types/paginated.type';
+import type { PatientDetail } from './types/patient-detail.type';
 
 export type PatientActor = {
   organizationId: string;
@@ -28,6 +32,9 @@ export class PatientsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly clinicalNotesService: ClinicalNotesService,
+    private readonly storageService: StorageService,
+    private readonly aiService: AiService,
   ) {}
 
   async create(dto: CreatePatientDto, actor: PatientActor): Promise<Patient> {
@@ -89,6 +96,19 @@ export class PatientsService {
 
   getById(id: string, organizationId: string): Promise<Patient> {
     return this.findOwnedPatient(id, organizationId);
+  }
+
+  async getDetail(id: string, organizationId: string): Promise<PatientDetail> {
+    const patient = await this.findOwnedPatient(id, organizationId);
+
+    const [files, notes, aiSummaries, activity] = await Promise.all([
+      this.storageService.listForPatient(id, organizationId),
+      this.clinicalNotesService.listForPatient(id, organizationId),
+      this.aiService.listForPatient(id, organizationId),
+      this.auditService.listForPatient(organizationId, id),
+    ]);
+
+    return { patient, files, notes, aiSummaries, activity };
   }
 
   async update(

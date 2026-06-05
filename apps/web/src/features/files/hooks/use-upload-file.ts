@@ -3,8 +3,9 @@ import { toast } from 'sonner';
 
 import { getErrorMessage } from '@/features/notifications/utils/get-error-message';
 
+import { patientsQueryKeys } from '@/features/patients/hooks/query-keys';
+
 import { filesApi } from '../api/files.api';
-import { filesQueryKeys } from './query-keys';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const MAX_SIZE = 10 * 1024 * 1024;
@@ -40,7 +41,9 @@ export function useUploadFile(patientId: string) {
     },
     onSuccess: async () => {
       toast.success('File uploaded');
-      await queryClient.invalidateQueries({ queryKey: filesQueryKeys.patient(patientId) });
+      await queryClient.invalidateQueries({
+        queryKey: patientsQueryKeys.detail(patientId),
+      });
     },
     onError: (error) => toast.error(getErrorMessage(error, 'Failed to upload file')),
   });

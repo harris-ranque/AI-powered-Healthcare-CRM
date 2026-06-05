@@ -23,5 +23,6 @@ import { ClinicalNotesService } from './clinical-notes.service';
     PermissionsGuard,
   ],
   controllers: [ClinicalNotesController, NoteActionsController],
+  exports: [ClinicalNotesService],
 })
 export class ClinicalNotesModule {}

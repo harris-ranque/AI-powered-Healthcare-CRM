@@ -1,18 +1,22 @@
 'use client';
 
-import { FileText, Image, Trash2, Upload } from 'lucide-react';
-import { useRef } from 'react';
+import { ExternalLink, FileText, Image, Trash2, Upload } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { Permission, hasPermission } from '@/features/auth/utils/role-permissions';
+import { getErrorMessage } from '@/features/notifications/utils/get-error-message';
 
+import { filesApi } from '../api/files.api';
 import { useDeleteFile } from '../hooks/use-delete-file';
-import { usePatientFiles } from '../hooks/use-patient-files';
 import { useUploadFile } from '../hooks/use-upload-file';
+import type { PatientFile } from '../types/file.type';
 
 type Props = {
   patientId: string;
+  files: PatientFile[];
 };
 
 function formatSize(bytes: number) {
@@ -28,21 +32,35 @@ function FileIcon({ mimeType }: { mimeType: string }) {
   return <FileText className="text-primary size-4" />;
 }
 
-export function FileList({ patientId }: Props) {
+export function FileList({ patientId, files }: Props) {
   const user = useAuth().user;
   const canUpload = hasPermission(user?.role, Permission.FILE_WRITE);
   const canDelete = hasPermission(user?.role, Permission.FILE_DELETE);
+  const canRead = hasPermission(user?.role, Permission.FILE_READ);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { data: files = [], isLoading } = usePatientFiles(patientId);
   const upload = useUploadFile(patientId);
   const remove = useDeleteFile(patientId);
+  const [openingFileId, setOpeningFileId] = useState<string | null>(null);
+
+  const openFile = async (file: PatientFile) => {
+    if (!canRead) return;
+    setOpeningFileId(file.id);
+    try {
+      const { url } = await filesApi.getDownloadUrl(file.id);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Failed to open file'));
+    } finally {
+      setOpeningFileId(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div>
           <h3 className="font-semibold">Uploaded files</h3>
-          <p className="text-muted-foreground text-sm">Reports, PDFs, and attachments.</p>
+          <p className="text-muted-foreground text-sm">Reports, PDFs, scans, and documents.</p>
         </div>
         {canUpload ? (
           <>
@@ -71,24 +89,38 @@ export function FileList({ patientId }: Props) {
         ) : null}
       </div>
 
-      {isLoading ? (
-        <p className="text-muted-foreground text-sm">Loading files...</p>
-      ) : files.length === 0 ? (
+      {files.length === 0 ? (
         <p className="text-muted-foreground text-sm">No files uploaded yet.</p>
       ) : (
         <div className="divide-y rounded-lg border">
           {files.map((file) => (
             <div key={file.id} className="flex items-center gap-3 p-3">
-              <FileIcon mimeType={file.mimeType} />
+              {file.mimeType.startsWith('image/') ? (
+                <button
+                  type="button"
+                  className="bg-muted size-12 shrink-0 overflow-hidden rounded-md border"
+                  onClick={() => void openFile(file)}
+                  disabled={openingFileId === file.id}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={file.publicUrl}
+                    alt={file.originalName}
+                    className="size-full object-cover"
+                  />
+                </button>
+              ) : (
+                <FileIcon mimeType={file.mimeType} />
+              )}
               <div className="min-w-0 flex-1">
-                <a
-                  href={file.publicUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-primary block truncate font-medium hover:underline"
+                <button
+                  type="button"
+                  onClick={() => void openFile(file)}
+                  disabled={openingFileId === file.id || !canRead}
+                  className="text-primary block truncate text-left font-medium hover:underline disabled:opacity-50"
                 >
                   {file.originalName}
-                </a>
+                </button>
                 <p className="text-muted-foreground text-xs">
                   {formatSize(file.size)} ·{' '}
                   {new Intl.DateTimeFormat('en-US', {
@@ -97,6 +129,17 @@ export function FileList({ patientId }: Props) {
                   }).format(new Date(file.createdAt))}
                 </p>
               </div>
+              {canRead ? (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={openingFileId === file.id}
+                  onClick={() => void openFile(file)}
+                  aria-label={`Open ${file.originalName}`}
+                >
+                  <ExternalLink className="size-4" />
+                </Button>
+              ) : null}
               {canDelete ? (
                 <Button
                   variant="ghost"

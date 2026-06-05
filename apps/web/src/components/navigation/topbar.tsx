@@ -3,8 +3,8 @@
 import { usePathname } from 'next/navigation';
 import { Menu } from 'lucide-react';
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { UserMenu } from '@/components/navigation/user-menu';
 
 type PageMeta = {
   title: string;
@@ -70,6 +70,9 @@ type TopbarProps = {
 export function Topbar({ onMenuClick }: TopbarProps) {
   const pathname = usePathname();
   const meta = getPageMeta(pathname);
+  const settingsHref = pathname?.startsWith('/portal')
+    ? '/portal/profile'
+    : '/dashboard/settings';
 
   return (
     <header className="medical-topbar-accent flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
@@ -97,11 +100,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-4">
-        <Avatar className="ring-primary/25 ring-2">
-          <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
-            SM
-          </AvatarFallback>
-        </Avatar>
+        <UserMenu settingsHref={settingsHref} />
       </div>
     </header>
   );

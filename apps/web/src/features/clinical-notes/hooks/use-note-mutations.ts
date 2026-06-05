@@ -3,8 +3,9 @@ import { toast } from 'sonner';
 
 import { getErrorMessage } from '@/features/notifications/utils/get-error-message';
 
+import { patientsQueryKeys } from '@/features/patients/hooks/query-keys';
+
 import { clinicalNotesApi } from '../api/clinical-notes.api';
-import { clinicalNotesQueryKeys } from './query-keys';
 
 export function useCreateNote(patientId: string) {
   const queryClient = useQueryClient();
@@ -13,7 +14,7 @@ export function useCreateNote(patientId: string) {
     onSuccess: async () => {
       toast.success('Note added');
       await queryClient.invalidateQueries({
-        queryKey: clinicalNotesQueryKeys.patient(patientId),
+        queryKey: patientsQueryKeys.detail(patientId),
       });
     },
     onError: (error) => toast.error(getErrorMessage(error, 'Failed to add note')),
@@ -28,7 +29,7 @@ export function useUpdateNote(patientId: string) {
     onSuccess: async () => {
       toast.success('Note updated');
       await queryClient.invalidateQueries({
-        queryKey: clinicalNotesQueryKeys.patient(patientId),
+        queryKey: patientsQueryKeys.detail(patientId),
       });
     },
     onError: (error) => toast.error(getErrorMessage(error, 'Failed to update note')),
@@ -42,7 +43,7 @@ export function useDeleteNote(patientId: string) {
     onSuccess: async () => {
       toast.success('Note deleted');
       await queryClient.invalidateQueries({
-        queryKey: clinicalNotesQueryKeys.patient(patientId),
+        queryKey: patientsQueryKeys.detail(patientId),
       });
     },
     onError: (error) => toast.error(getErrorMessage(error, 'Failed to delete note')),
@@ -55,14 +56,9 @@ export function useSummarizeNote(patientId: string) {
     mutationFn: (noteId: string) => clinicalNotesApi.summarize(noteId),
     onSuccess: async () => {
       toast.success('AI summary generated');
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: clinicalNotesQueryKeys.patient(patientId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: clinicalNotesQueryKeys.aiSummaries(patientId),
-        }),
-      ]);
+      await queryClient.invalidateQueries({
+        queryKey: patientsQueryKeys.detail(patientId),
+      });
     },
     onError: (error) => toast.error(getErrorMessage(error, 'Failed to generate summary')),
   });

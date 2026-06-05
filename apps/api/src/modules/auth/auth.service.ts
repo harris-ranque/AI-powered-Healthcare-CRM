@@ -54,6 +54,7 @@ export type AuthLogoutResponse = {
 export type AuthMeResponse = {
   id: string;
   email: string;
+  name?: string | null;
   role: Role;
   organizationId?: string;
   memberStatus?: MemberStatus;
@@ -684,6 +685,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        name: true,
         role: true,
       },
     });
@@ -700,6 +702,7 @@ export class AuthService {
     return {
       id: user.id,
       email: user.email,
+      name: user.name,
       role: user.role,
       organizationId: membership?.organizationId,
       memberStatus: membership?.status,

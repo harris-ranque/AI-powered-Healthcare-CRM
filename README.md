@@ -76,6 +76,23 @@ Password-based **login** and all **register** endpoints (`/auth/register`, `/reg
 
 Clients without an invite can find their clinic via searchable picker (`GET /organizations/search?q=`) and register with the resolved `clinicSlug`.
 
+## Patient detail page
+
+![Patient detail page flow](docs/images/patient-detail-flow.png)
+
+The `/dashboard/patients/[id]` page opens from the Patients table **View** action and is organized into four tabs:
+
+| Tab | Source | Notes |
+|-----|--------|-------|
+| **Overview** | `GET /patients/:id` | Patient info, contact info, and metadata (IDs, timestamps, status). |
+| **Files** | `GET` / `POST` / `DELETE /storage/files`, `POST /storage/upload-url` | Reports/PDFs/attachments scoped to the patient via `File.patientId`; presigned R2 upload (PDF/JPEG/PNG, 10MB). |
+| **Notes** | `GET` / `POST /patients/:id/notes`, `PATCH` / `DELETE /notes/:noteId`, `POST /notes/:noteId/summarize` | Multiple timestamped `ClinicalNote` records; each can generate an AI summary via `AiService`. |
+| **Activity** | `GET /patients/:id/activity` | Patient-scoped audit timeline (patient, file, note, and AI events). |
+
+- **AI history** — `GET /patients/:id/ai-summaries` lists `AiRequestLog` rows (linked by `patientId` / `noteId`).
+- **Permissions** — Overview/Notes/Activity use `PATIENT_READ` (view) and `PATIENT_WRITE` (edit); files use `FILE_READ` / `FILE_WRITE` / `FILE_DELETE`; summaries use `AI_SUMMARY`.
+- **Activity correlation** — file/note/AI audit logs carry `metadata.patientId`, so the timeline aggregates cross-resource events for one patient without granting the org-wide `AUDIT_READ`.
+
 ### Token handling
 
 - Access tokens (JWT, 15 min) are returned in the response body and held in memory by Zustand.

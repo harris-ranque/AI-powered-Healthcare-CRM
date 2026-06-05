@@ -2,10 +2,12 @@
 
 import { Activity, FileUp, NotebookPen, Sparkles, UserRound } from 'lucide-react';
 
-import { usePatientActivity } from '../hooks/use-patient-activity';
+import { cn } from '@/lib/utils';
+
+import type { ActivityEvent } from '../types/activity.type';
 
 type Props = {
-  patientId: string;
+  events: ActivityEvent[];
 };
 
 const ACTION_LABELS: Record<string, { label: string; icon: typeof Activity }> = {
@@ -25,38 +27,57 @@ function getActionMeta(action: string) {
   return ACTION_LABELS[action] ?? { label: action.replaceAll('_', ' ').toLowerCase(), icon: Activity };
 }
 
-export function ActivityTimeline({ patientId }: Props) {
-  const { data: events = [], isLoading } = usePatientActivity(patientId);
+function formatRelativeTime(value: string) {
+  const date = new Date(value);
+  const diffMs = Date.now() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+  if (diffMinutes < 1) return 'just now';
+  if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
 
+export function ActivityTimeline({ events }: Props) {
   return (
     <div className="space-y-4">
       <div>
         <h3 className="font-semibold">Activity timeline</h3>
-        <p className="text-muted-foreground text-sm">Audit events, updates, and uploads.</p>
+        <p className="text-muted-foreground text-sm">Audit events, updates, uploads, and note changes.</p>
       </div>
 
-      {isLoading ? (
-        <p className="text-muted-foreground text-sm">Loading activity...</p>
-      ) : events.length === 0 ? (
+      {events.length === 0 ? (
         <p className="text-muted-foreground text-sm">No activity recorded yet.</p>
       ) : (
-        <ol className="relative space-y-4 border-l pl-6">
-          {events.map((event) => {
+        <ol>
+          {events.map((event, index) => {
             const meta = getActionMeta(event.action);
             const Icon = meta.icon;
+            const actor = event.user?.name ?? event.user?.email ?? 'System';
+            const isFirst = index === 0;
+            const isLast = index === events.length - 1;
             return (
-              <li key={event.id} className="relative">
-                <span className="bg-background absolute top-1 -left-[1.85rem] rounded-full border p-1">
-                  <Icon className="text-primary size-3.5" />
-                </span>
-                <div className="rounded-lg border p-3">
+              <li key={event.id} className="flex gap-4">
+                <div className="flex w-8 shrink-0 flex-col items-center self-stretch">
+                  <span
+                    aria-hidden
+                    className={cn('w-px flex-1', isFirst ? 'bg-transparent' : 'bg-border')}
+                  />
+                  <span className="bg-background flex size-8 shrink-0 items-center justify-center rounded-full border">
+                    <Icon className="text-primary size-4" />
+                  </span>
+                  <span
+                    aria-hidden
+                    className={cn('w-px flex-1', isLast ? 'bg-transparent' : 'bg-border')}
+                  />
+                </div>
+                <div className={cn('flex-1 rounded-lg border p-3', !isLast && 'mb-3')}>
                   <p className="font-medium capitalize">{meta.label}</p>
                   <p className="text-muted-foreground text-xs">
-                    {event.user?.name ?? event.user?.email ?? 'System'} ·{' '}
-                    {new Intl.DateTimeFormat('en-US', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    }).format(new Date(event.createdAt))}
+                    {formatRelativeTime(event.createdAt)} · by {actor}
                   </p>
                 </div>
               </li>

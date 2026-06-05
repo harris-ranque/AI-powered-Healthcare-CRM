@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { ClinicalNote } from '@prisma/client';
+import { Prisma, type ClinicalNote } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
 import { AiService } from '../ai/ai.service';
@@ -17,6 +17,10 @@ const noteInclude = {
   author: { select: { id: true, name: true, email: true } },
 } as const;
 
+export type ClinicalNoteWithAuthor = Prisma.ClinicalNoteGetPayload<{
+  include: typeof noteInclude;
+}>;
+
 @Injectable()
 export class ClinicalNotesService {
   constructor(
@@ -28,7 +32,7 @@ export class ClinicalNotesService {
   async listForPatient(
     patientId: string,
     organizationId: string,
-  ): Promise<ClinicalNote[]> {
+  ): Promise<ClinicalNoteWithAuthor[]> {
     await this.assertPatientInOrg(patientId, organizationId);
     return this.prisma.client.clinicalNote.findMany({
       where: { patientId, organizationId },

@@ -3,9 +3,8 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, FileText, LogOut, User, UserRound } from 'lucide-react';
+import { Calendar, FileText, User, UserRound } from 'lucide-react';
 
-import { useLogout } from '@/features/auth/hooks/use-logout';
 import { cn } from '@/lib/utils';
 
 const items = [
@@ -26,7 +25,6 @@ type Props = {
 
 export function PortalSidebarContent({ onNavigate, className }: Props) {
   const pathname = usePathname();
-  const { logout, loading } = useLogout();
 
   const activeHref = items
     .filter((item) => matchesHref(pathname, item.href))
@@ -73,17 +71,6 @@ export function PortalSidebarContent({ onNavigate, className }: Props) {
           );
         })}
       </nav>
-      <div className="border-sidebar-border border-t p-3">
-        <button
-          type="button"
-          onClick={() => void logout()}
-          disabled={loading}
-          className="text-destructive hover:bg-destructive/10 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm disabled:opacity-50"
-        >
-          <LogOut className="h-4 w-4" />
-          {loading ? 'Logging out...' : 'Log out'}
-        </button>
-      </div>
     </div>
   );
 }

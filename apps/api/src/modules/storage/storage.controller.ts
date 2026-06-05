@@ -42,6 +42,15 @@ export class StorageController {
     });
   }
 
+  @Get('files/:id/download-url')
+  @RequirePermissions(Permission.FILE_READ)
+  getDownloadUrl(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentOrganization() organization: OrganizationContext,
+  ) {
+    return this.storageService.getDownloadUrl(id, organization.organizationId);
+  }
+
   @Get('files')
   @RequirePermissions(Permission.FILE_READ)
   listFiles(

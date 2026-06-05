@@ -5,13 +5,23 @@ import { PrismaModule } from '../../database/prisma.module';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { OrganizationContextGuard } from '../../common/guards/organization-context.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { AiModule } from '../ai/ai.module';
 import { AuditModule } from '../audit/audit.module';
+import { ClinicalNotesModule } from '../clinical-notes/clinical-notes.module';
+import { StorageModule } from '../storage/storage.module';
 
 import { PatientsController } from './patients.controller';
 import { PatientsService } from './patients.service';
 
 @Module({
-  imports: [PrismaModule, JwtModule, AuditModule],
+  imports: [
+    PrismaModule,
+    JwtModule,
+    AuditModule,
+    ClinicalNotesModule,
+    StorageModule,
+    AiModule,
+  ],
   providers: [
     PatientsService,
     JwtAuthGuard,
