@@ -1,8 +1,14 @@
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateClinicalNoteDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  title?: string;
+
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   @MaxLength(10000)
-  body: string;
+  body?: string;
 }

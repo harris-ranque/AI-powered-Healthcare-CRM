@@ -1,5 +1,7 @@
+import { AppointmentStatus } from '@prisma/client';
 import {
   IsDateString,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -19,14 +21,17 @@ export class CreateAppointmentDto {
   @IsDateString()
   startsAt: string;
 
-  @IsOptional()
   @IsDateString()
-  endsAt?: string;
+  endsAt: string;
+
+  @IsOptional()
+  @IsEnum(AppointmentStatus)
+  status?: AppointmentStatus;
 
   @IsOptional()
   @IsString()
-  @MaxLength(50)
-  status?: string;
+  @MaxLength(200)
+  title?: string;
 
   @IsOptional()
   @IsString()

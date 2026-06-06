@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -34,10 +35,12 @@ export class ClinicalNotesController {
   listNotes(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentOrganization() organization: OrganizationContext,
+    @Query('search') search?: string,
   ) {
     return this.clinicalNotesService.listForPatient(
       id,
       organization.organizationId,
+      search,
     );
   }
 
@@ -60,6 +63,18 @@ export class ClinicalNotesController {
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionsGuard)
 export class NoteActionsController {
   constructor(private readonly clinicalNotesService: ClinicalNotesService) {}
+
+  @Get(':noteId')
+  @RequirePermissions(Permission.PATIENT_READ)
+  getNote(
+    @Param('noteId', new ParseUUIDPipe()) noteId: string,
+    @CurrentOrganization() organization: OrganizationContext,
+  ) {
+    return this.clinicalNotesService.getById(
+      noteId,
+      organization.organizationId,
+    );
+  }
 
   @Patch(':noteId')
   @RequirePermissions(Permission.PATIENT_WRITE)
@@ -96,6 +111,32 @@ export class NoteActionsController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.clinicalNotesService.summarize(noteId, {
+      organizationId: organization.organizationId,
+      userId: req.user.sub,
+    });
+  }
+
+  @Post(':noteId/key-points')
+  @RequirePermissions(Permission.AI_SUMMARY)
+  generateKeyPoints(
+    @Param('noteId', new ParseUUIDPipe()) noteId: string,
+    @CurrentOrganization() organization: OrganizationContext,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.clinicalNotesService.generateKeyPoints(noteId, {
+      organizationId: organization.organizationId,
+      userId: req.user.sub,
+    });
+  }
+
+  @Post(':noteId/visit-summary')
+  @RequirePermissions(Permission.AI_SUMMARY)
+  generateVisitSummary(
+    @Param('noteId', new ParseUUIDPipe()) noteId: string,
+    @CurrentOrganization() organization: OrganizationContext,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.clinicalNotesService.generateVisitSummary(noteId, {
       organizationId: organization.organizationId,
       userId: req.user.sub,
     });

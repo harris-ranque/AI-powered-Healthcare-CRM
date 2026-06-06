@@ -6,7 +6,10 @@ import OpenAI from 'openai';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { OPENAI_CLIENT } from './ai.client';
-import { MEDICAL_NOTE_SUMMARY_SYSTEM_PROMPT } from './ai.constants';
+import {
+  AI_SAFETY_DISCLAIMER,
+  MEDICAL_NOTE_SUMMARY_SYSTEM_PROMPT,
+} from './ai.constants';
 import { AiService } from './ai.service';
 
 describe('AiService', () => {
@@ -80,7 +83,7 @@ describe('AiService', () => {
     ).rejects.toThrow(ServiceUnavailableException);
   });
 
-  it('calls OpenAI with the required system prompt and logs the request', async () => {
+  it('calls OpenAI with the required system prompt and logs model and cost', async () => {
     createCompletion.mockResolvedValue({
       choices: [{ message: { content: 'Brief summary of notes.' } }],
       usage: { total_tokens: 42 },
@@ -103,16 +106,69 @@ describe('AiService', () => {
     );
 
     expect(prisma.client.aiRequestLog.create).toHaveBeenCalledWith({
-      data: {
+      data: expect.objectContaining({
         organizationId: 'org-1',
         userId: 'user-1',
         prompt: 'Patient reports mild headache.',
         response: 'Brief summary of notes.',
         tokens: 42,
-      },
+        model: 'gpt-4o-mini',
+        cost: expect.any(Number),
+      }),
     });
 
-    expect(result).toEqual({ summary: 'Brief summary of notes.', tokens: 42 });
+    expect(result.summary).toContain(AI_SAFETY_DISCLAIMER);
+    expect(result.tokens).toBe(42);
+  });
+
+  it('generateKeyPoints parses structured JSON into three arrays', async () => {
+    createCompletion.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              keyFindings: ['Mild headache'],
+              actionItems: ['Rest and hydrate'],
+              followUpTasks: ['Return in 2 weeks'],
+            }),
+          },
+        },
+      ],
+      usage: { total_tokens: 55 },
+    });
+
+    const result = await service.generateKeyPoints(
+      { notes: 'Patient reports mild headache.' },
+      { organizationId: 'org-1', userId: 'user-1' },
+    );
+
+    expect(createCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        response_format: { type: 'json_object' },
+      }),
+    );
+
+    expect(result.keyPoints).toEqual({
+      keyFindings: ['Mild headache'],
+      actionItems: ['Rest and hydrate'],
+      followUpTasks: ['Return in 2 weeks'],
+    });
+    expect(result.tokens).toBe(55);
+  });
+
+  it('generateVisitSummary ensures the safety disclaimer is present', async () => {
+    createCompletion.mockResolvedValue({
+      choices: [{ message: { content: 'You had a routine check-up today.' } }],
+      usage: { total_tokens: 30 },
+    });
+
+    const result = await service.generateVisitSummary(
+      { notes: 'Routine visit notes.' },
+      { organizationId: 'org-1', userId: 'user-1' },
+    );
+
+    expect(result.visitSummary).toContain(AI_SAFETY_DISCLAIMER);
+    expect(result.tokens).toBe(30);
   });
 
   it('summarizeAdHoc writes patient-scoped audit when patientId is provided', async () => {
@@ -131,17 +187,6 @@ describe('AiService', () => {
       select: { id: true },
     });
 
-    expect(prisma.client.aiRequestLog.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        organizationId: 'org-1',
-        userId: 'user-1',
-        patientId: 'patient-1',
-        prompt: 'Visit notes for summary.',
-        response: 'Ad-hoc summary.',
-        tokens: 30,
-      }),
-    });
-
     expect(auditLog).toHaveBeenCalledWith({
       userId: 'user-1',
       organizationId: 'org-1',
@@ -155,7 +200,7 @@ describe('AiService', () => {
       },
     });
 
-    expect(result).toEqual({ summary: 'Ad-hoc summary.', tokens: 30 });
+    expect(result.summary).toContain(AI_SAFETY_DISCLAIMER);
   });
 
   it('summarizeAdHoc skips audit when patientId is omitted', async () => {

@@ -1,4 +1,5 @@
-import { IsDateString, IsOptional, IsUUID } from 'class-validator';
+import { AppointmentStatus } from '@prisma/client';
+import { IsDateString, IsEnum, IsOptional, IsUUID } from 'class-validator';
 
 export class ListAppointmentsDto {
   @IsOptional()
@@ -12,4 +13,12 @@ export class ListAppointmentsDto {
   @IsOptional()
   @IsUUID()
   patientId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  providerId?: string;
+
+  @IsOptional()
+  @IsEnum(AppointmentStatus)
+  status?: AppointmentStatus;
 }

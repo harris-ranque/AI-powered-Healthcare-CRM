@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Building2,
+  CalendarDays,
   CreditCard,
   LayoutDashboard,
   ShieldCheck,
@@ -62,6 +63,12 @@ const items: NavItem[] = [
     href: '/dashboard/patients',
     icon: Users,
     visible: (role) => hasPermission(role, Permission.PATIENT_READ),
+  },
+  {
+    label: 'Calendar',
+    href: '/dashboard/calendar',
+    icon: CalendarDays,
+    visible: (role) => hasPermission(role, Permission.APPOINTMENT_READ),
   },
   {
     label: 'Billing',

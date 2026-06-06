@@ -11,8 +11,6 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { Appointment } from '@prisma/client';
-
 import { CurrentOrganization } from '../../common/decorators/current-organization.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
@@ -22,7 +20,10 @@ import { Permission } from '../../common/permissions';
 import type { AuthenticatedRequest } from '../../common/types/authenticated-request.type';
 import type { OrganizationContext } from '../../common/types/organization-context.type';
 
-import { AppointmentsService } from './appointments.service';
+import {
+  AppointmentsService,
+  type AppointmentWithRelations,
+} from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { ListAppointmentsDto } from './dto/list-appointments.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
@@ -38,7 +39,7 @@ export class AppointmentsController {
     @Body() dto: CreateAppointmentDto,
     @CurrentOrganization() organization: OrganizationContext,
     @Req() req: AuthenticatedRequest,
-  ): Promise<Appointment> {
+  ): Promise<AppointmentWithRelations> {
     return this.appointmentsService.create(dto, {
       organizationId: organization.organizationId,
       userId: req.user.sub,
@@ -50,8 +51,17 @@ export class AppointmentsController {
   list(
     @CurrentOrganization() organization: OrganizationContext,
     @Query() query: ListAppointmentsDto,
-  ): Promise<Appointment[]> {
+  ): Promise<AppointmentWithRelations[]> {
     return this.appointmentsService.list(organization.organizationId, query);
+  }
+
+  @Get(':id')
+  @RequirePermissions(Permission.APPOINTMENT_READ)
+  getById(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentOrganization() organization: OrganizationContext,
+  ): Promise<AppointmentWithRelations> {
+    return this.appointmentsService.getById(id, organization.organizationId);
   }
 
   @Patch(':id')
@@ -61,7 +71,7 @@ export class AppointmentsController {
     @Body() dto: UpdateAppointmentDto,
     @CurrentOrganization() organization: OrganizationContext,
     @Req() req: AuthenticatedRequest,
-  ): Promise<Appointment> {
+  ): Promise<AppointmentWithRelations> {
     return this.appointmentsService.update(id, dto, {
       organizationId: organization.organizationId,
       userId: req.user.sub,

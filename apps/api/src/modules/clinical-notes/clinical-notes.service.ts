@@ -32,13 +32,47 @@ export class ClinicalNotesService {
   async listForPatient(
     patientId: string,
     organizationId: string,
+    search?: string,
   ): Promise<ClinicalNoteWithAuthor[]> {
     await this.assertPatientInOrg(patientId, organizationId);
+
+    const trimmedSearch = search?.trim();
+    const where: Prisma.ClinicalNoteWhereInput = {
+      patientId,
+      organizationId,
+      ...(trimmedSearch
+        ? {
+            OR: [
+              {
+                title: { contains: trimmedSearch, mode: 'insensitive' },
+              },
+              {
+                body: { contains: trimmedSearch, mode: 'insensitive' },
+              },
+            ],
+          }
+        : {}),
+    };
+
     return this.prisma.client.clinicalNote.findMany({
-      where: { patientId, organizationId },
+      where,
       orderBy: { createdAt: 'desc' },
       include: noteInclude,
     });
+  }
+
+  async getById(
+    noteId: string,
+    organizationId: string,
+  ): Promise<ClinicalNoteWithAuthor> {
+    const note = await this.prisma.client.clinicalNote.findFirst({
+      where: { id: noteId, organizationId },
+      include: noteInclude,
+    });
+    if (!note) {
+      throw new NotFoundException('Clinical note not found');
+    }
+    return note;
   }
 
   async create(
@@ -53,6 +87,7 @@ export class ClinicalNotesService {
         organizationId: actor.organizationId,
         patientId,
         authorId: actor.userId,
+        title: dto.title ?? null,
         body: dto.body,
       },
       include: noteInclude,
@@ -77,9 +112,17 @@ export class ClinicalNotesService {
   ): Promise<ClinicalNote> {
     const existing = await this.findOwnedNote(noteId, actor.organizationId);
 
+    const data: Prisma.ClinicalNoteUpdateInput = {};
+    if (dto.title !== undefined) {
+      data.title = dto.title;
+    }
+    if (dto.body !== undefined) {
+      data.body = dto.body;
+    }
+
     const note = await this.prisma.client.clinicalNote.update({
       where: { id: existing.id },
-      data: { body: dto.body },
+      data,
       include: noteInclude,
     });
 
@@ -140,6 +183,76 @@ export class ClinicalNotesService {
       resource: 'NOTE',
       resourceId: note.id,
       metadata: { patientId: note.patientId, tokens: result.tokens },
+    });
+
+    return { note: updated, ...result };
+  }
+
+  async generateKeyPoints(noteId: string, actor: NoteActor) {
+    const note = await this.findOwnedNote(noteId, actor.organizationId);
+
+    const result = await this.aiService.generateKeyPoints(
+      { notes: note.body },
+      {
+        organizationId: actor.organizationId,
+        userId: actor.userId,
+        patientId: note.patientId,
+        noteId: note.id,
+      },
+    );
+
+    const updated = await this.prisma.client.clinicalNote.update({
+      where: { id: note.id },
+      data: { keyPoints: result.keyPoints as Prisma.InputJsonValue },
+      include: noteInclude,
+    });
+
+    await this.auditService.log({
+      userId: actor.userId,
+      organizationId: actor.organizationId,
+      action: 'AI_SUMMARIZED',
+      resource: 'NOTE',
+      resourceId: note.id,
+      metadata: {
+        patientId: note.patientId,
+        tokens: result.tokens,
+        source: 'key_points',
+      },
+    });
+
+    return { note: updated, ...result };
+  }
+
+  async generateVisitSummary(noteId: string, actor: NoteActor) {
+    const note = await this.findOwnedNote(noteId, actor.organizationId);
+
+    const result = await this.aiService.generateVisitSummary(
+      { notes: note.body },
+      {
+        organizationId: actor.organizationId,
+        userId: actor.userId,
+        patientId: note.patientId,
+        noteId: note.id,
+      },
+    );
+
+    const updated = await this.prisma.client.clinicalNote.update({
+      where: { id: note.id },
+      data: { visitSummary: result.visitSummary },
+      include: noteInclude,
+    });
+
+    await this.auditService.log({
+      userId: actor.userId,
+      organizationId: actor.organizationId,
+      action: 'AI_SUMMARIZED',
+      resource: 'NOTE',
+      resourceId: note.id,
+      metadata: {
+        patientId: note.patientId,
+        tokens: result.tokens,
+        source: 'visit_summary',
+      },
     });
 
     return { note: updated, ...result };

@@ -171,4 +171,41 @@
       0 1px 2px oklch(0.45 0.08 200 / 6%),
       0 4px 16px oklch(0.5 0.1 210 / 8%);
   }
+
+  .appointment-calendar .fc {
+    --fc-border-color: var(--border);
+    --fc-button-bg-color: var(--primary);
+    --fc-button-border-color: var(--primary);
+    --fc-button-hover-bg-color: color-mix(in oklch, var(--primary) 90%, black);
+    --fc-button-hover-border-color: color-mix(in oklch, var(--primary) 90%, black);
+    --fc-button-active-bg-color: color-mix(in oklch, var(--primary) 80%, black);
+    --fc-button-active-border-color: color-mix(in oklch, var(--primary) 80%, black);
+    --fc-today-bg-color: color-mix(in oklch, var(--primary) 8%, transparent);
+    --fc-page-bg-color: var(--card);
+    --fc-neutral-bg-color: var(--muted);
+    --fc-list-event-hover-bg-color: var(--accent);
+    font-family: inherit;
+  }
+
+  .appointment-calendar .fc-event-scheduled {
+    background-color: oklch(0.55 0.12 250);
+    border-color: oklch(0.5 0.12 250);
+  }
+
+  .appointment-calendar .fc-event-confirmed {
+    background-color: oklch(0.55 0.14 155);
+    border-color: oklch(0.5 0.14 155);
+  }
+
+  .appointment-calendar .fc-event-completed {
+    background-color: oklch(0.5 0.02 250);
+    border-color: oklch(0.45 0.02 250);
+  }
+
+  .appointment-calendar .fc-event-cancelled,
+  .appointment-calendar .fc-event-noshow {
+    background-color: oklch(0.55 0.12 25);
+    border-color: oklch(0.5 0.12 25);
+    opacity: 0.75;
+  }
 }

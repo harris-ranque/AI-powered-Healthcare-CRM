@@ -1,5 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, type Appointment } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { AppointmentStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -8,10 +13,24 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { ListAppointmentsDto } from './dto/list-appointments.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 
+export const appointmentInclude = {
+  patient: { select: { id: true, firstName: true, lastName: true } },
+  provider: { select: { id: true, name: true, email: true } },
+} as const;
+
+export type AppointmentWithRelations = Prisma.AppointmentGetPayload<{
+  include: typeof appointmentInclude;
+}>;
+
 export type AppointmentActor = {
   organizationId: string;
   userId: string;
 };
+
+const INACTIVE_STATUSES: AppointmentStatus[] = [
+  AppointmentStatus.CANCELLED,
+  AppointmentStatus.NO_SHOW,
+];
 
 @Injectable()
 export class AppointmentsService {
@@ -23,20 +42,32 @@ export class AppointmentsService {
   async create(
     dto: CreateAppointmentDto,
     actor: AppointmentActor,
-  ): Promise<Appointment> {
+  ): Promise<AppointmentWithRelations> {
     await this.assertPatientInOrg(dto.patientId, actor.organizationId);
+
+    const startsAt = new Date(dto.startsAt);
+    const endsAt = new Date(dto.endsAt);
+    this.assertValidRange(startsAt, endsAt);
+    await this.assertNoProviderConflict(
+      actor.organizationId,
+      dto.providerId,
+      startsAt,
+      endsAt,
+    );
 
     const appointment = await this.prisma.client.appointment.create({
       data: {
         organizationId: actor.organizationId,
         patientId: dto.patientId,
         providerId: dto.providerId,
-        startsAt: new Date(dto.startsAt),
-        endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
-        status: dto.status ?? 'SCHEDULED',
+        startsAt,
+        endsAt,
+        status: dto.status ?? AppointmentStatus.SCHEDULED,
+        title: dto.title,
         reason: dto.reason,
         notes: dto.notes,
       },
+      include: appointmentInclude,
     });
 
     await this.auditService.log({
@@ -54,10 +85,12 @@ export class AppointmentsService {
   list(
     organizationId: string,
     query: ListAppointmentsDto,
-  ): Promise<Appointment[]> {
+  ): Promise<AppointmentWithRelations[]> {
     const where: Prisma.AppointmentWhereInput = {
       organizationId,
       ...(query.patientId ? { patientId: query.patientId } : {}),
+      ...(query.providerId ? { providerId: query.providerId } : {}),
+      ...(query.status ? { status: query.status } : {}),
       ...(query.from || query.to
         ? {
             startsAt: {
@@ -71,35 +104,54 @@ export class AppointmentsService {
     return this.prisma.client.appointment.findMany({
       where,
       orderBy: { startsAt: 'asc' },
+      include: appointmentInclude,
     });
+  }
+
+  getById(id: string, organizationId: string): Promise<AppointmentWithRelations> {
+    return this.findOwnedAppointment(id, organizationId);
   }
 
   async update(
     id: string,
     dto: UpdateAppointmentDto,
     actor: AppointmentActor,
-  ): Promise<Appointment> {
+  ): Promise<AppointmentWithRelations> {
     const existing = await this.findOwnedAppointment(id, actor.organizationId);
 
     if (dto.patientId) {
       await this.assertPatientInOrg(dto.patientId, actor.organizationId);
     }
 
+    const startsAt =
+      dto.startsAt !== undefined ? new Date(dto.startsAt) : existing.startsAt;
+    const endsAt =
+      dto.endsAt !== undefined ? new Date(dto.endsAt) : existing.endsAt;
+    const providerId =
+      dto.providerId !== undefined ? dto.providerId : existing.providerId;
+
+    this.assertValidRange(startsAt, endsAt);
+    await this.assertNoProviderConflict(
+      actor.organizationId,
+      providerId,
+      startsAt,
+      endsAt,
+      existing.id,
+    );
+
     const appointment = await this.prisma.client.appointment.update({
       where: { id: existing.id },
       data: {
         ...(dto.patientId !== undefined ? { patientId: dto.patientId } : {}),
         ...(dto.providerId !== undefined ? { providerId: dto.providerId } : {}),
-        ...(dto.startsAt !== undefined
-          ? { startsAt: new Date(dto.startsAt) }
-          : {}),
-        ...(dto.endsAt !== undefined
-          ? { endsAt: dto.endsAt ? new Date(dto.endsAt) : null }
-          : {}),
+        ...(dto.startsAt !== undefined ? { startsAt } : {}),
+        ...(dto.endsAt !== undefined ? { endsAt } : {}),
         ...(dto.status !== undefined ? { status: dto.status } : {}),
+        ...(dto.title !== undefined ? { title: dto.title } : {}),
         ...(dto.reason !== undefined ? { reason: dto.reason } : {}),
         ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
       },
+      include: appointmentInclude,
     });
 
     await this.auditService.log({
@@ -144,6 +196,41 @@ export class AppointmentsService {
     });
   }
 
+  private assertValidRange(startsAt: Date, endsAt: Date): void {
+    if (endsAt <= startsAt) {
+      throw new BadRequestException('endsAt must be after startsAt');
+    }
+  }
+
+  private async assertNoProviderConflict(
+    organizationId: string,
+    providerId: string | null | undefined,
+    startsAt: Date,
+    endsAt: Date,
+    excludeId?: string,
+  ): Promise<void> {
+    if (!providerId) {
+      return;
+    }
+
+    const conflict = await this.prisma.client.appointment.findFirst({
+      where: {
+        organizationId,
+        providerId,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+        status: { notIn: INACTIVE_STATUSES },
+        startsAt: { lt: endsAt },
+        endsAt: { gt: startsAt },
+      },
+    });
+
+    if (conflict) {
+      throw new ConflictException(
+        'Doctor already has an overlapping appointment',
+      );
+    }
+  }
+
   private getTodayRange(): { start: Date; end: Date } {
     const now = new Date();
     const start = new Date(now);
@@ -169,9 +256,10 @@ export class AppointmentsService {
   private async findOwnedAppointment(
     id: string,
     organizationId: string,
-  ): Promise<Appointment> {
+  ): Promise<AppointmentWithRelations> {
     const appointment = await this.prisma.client.appointment.findFirst({
       where: { id, organizationId },
+      include: appointmentInclude,
     });
 
     if (!appointment) {

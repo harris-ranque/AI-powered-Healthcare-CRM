@@ -14,8 +14,13 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { OPENAI_CLIENT } from './ai.client';
 import {
+  AI_SAFETY_DISCLAIMER,
+  DEFAULT_MODEL_PRICING_PER_1K,
   DEFAULT_OPENAI_MODEL,
+  KEY_POINTS_SYSTEM_PROMPT,
   MEDICAL_NOTE_SUMMARY_SYSTEM_PROMPT,
+  MODEL_PRICING,
+  VISIT_SUMMARY_SYSTEM_PROMPT,
 } from './ai.constants';
 import type { MedicalNoteSummaryDto } from './dto/medical-note-summary.dto';
 
@@ -31,11 +36,35 @@ export type MedicalNoteSummaryResult = {
   tokens: number;
 };
 
+export type KeyPoints = {
+  keyFindings: string[];
+  actionItems: string[];
+  followUpTasks: string[];
+};
+
+export type KeyPointsResult = {
+  keyPoints: KeyPoints;
+  tokens: number;
+};
+
+export type VisitSummaryResult = {
+  visitSummary: string;
+  tokens: number;
+};
+
+type CompletionResult = {
+  content: string;
+  tokens: number;
+  model: string;
+};
+
 const aiSummaryUserSelect = {
   id: true,
   prompt: true,
   response: true,
   tokens: true,
+  model: true,
+  cost: true,
   noteId: true,
   createdAt: true,
   user: { select: { id: true, name: true, email: true } },
@@ -86,49 +115,49 @@ export class AiService {
     dto: MedicalNoteSummaryDto,
     actor: SummarizeNoteActor,
   ): Promise<MedicalNoteSummaryResult> {
-    if (!this.openai) {
-      throw new ServiceUnavailableException(
-        'AI summarization is not configured (OPENAI_API_KEY missing)',
-      );
-    }
-
-    const model =
-      this.config.get<string>('OPENAI_MODEL')?.trim() || DEFAULT_OPENAI_MODEL;
-
-    let completion: OpenAI.Chat.Completions.ChatCompletion;
-    try {
-      completion = await this.openai.chat.completions.create({
-        model,
-        temperature: 0.2,
-        messages: [
-          { role: 'system', content: MEDICAL_NOTE_SUMMARY_SYSTEM_PROMPT },
-          { role: 'user', content: dto.notes },
-        ],
-      });
-    } catch {
-      throw new BadGatewayException('Failed to generate summary from AI provider');
-    }
-
-    const summary = completion.choices[0]?.message?.content?.trim();
-    if (!summary) {
-      throw new BadGatewayException('AI provider returned an empty summary');
-    }
-
-    const tokens = completion.usage?.total_tokens ?? 0;
-
-    await this.prisma.client.aiRequestLog.create({
-      data: {
-        organizationId: actor.organizationId,
-        userId: actor.userId,
-        patientId: actor.patientId,
-        noteId: actor.noteId,
-        prompt: dto.notes,
-        response: summary,
-        tokens,
-      },
+    const { content, tokens } = await this.runCompletion({
+      system: MEDICAL_NOTE_SUMMARY_SYSTEM_PROMPT,
+      user: dto.notes,
+      actor,
+      prompt: dto.notes,
     });
 
+    const summary = this.ensureDisclaimer(content);
+
     return { summary, tokens };
+  }
+
+  async generateKeyPoints(
+    dto: MedicalNoteSummaryDto,
+    actor: SummarizeNoteActor,
+  ): Promise<KeyPointsResult> {
+    const { content, tokens } = await this.runCompletion({
+      system: KEY_POINTS_SYSTEM_PROMPT,
+      user: dto.notes,
+      actor,
+      prompt: dto.notes,
+      json: true,
+    });
+
+    const keyPoints = this.parseKeyPoints(content);
+
+    return { keyPoints, tokens };
+  }
+
+  async generateVisitSummary(
+    dto: MedicalNoteSummaryDto,
+    actor: SummarizeNoteActor,
+  ): Promise<VisitSummaryResult> {
+    const { content, tokens } = await this.runCompletion({
+      system: VISIT_SUMMARY_SYSTEM_PROMPT,
+      user: dto.notes,
+      actor,
+      prompt: dto.notes,
+    });
+
+    const visitSummary = this.ensureDisclaimer(content);
+
+    return { visitSummary, tokens };
   }
 
   async listForPatient(
@@ -149,6 +178,99 @@ export class AiService {
       take: 50,
       select: aiSummaryUserSelect,
     });
+  }
+
+  private async runCompletion(params: {
+    system: string;
+    user: string;
+    actor: SummarizeNoteActor;
+    prompt: string;
+    json?: boolean;
+  }): Promise<CompletionResult> {
+    if (!this.openai) {
+      throw new ServiceUnavailableException(
+        'AI summarization is not configured (OPENAI_API_KEY missing)',
+      );
+    }
+
+    const model =
+      this.config.get<string>('OPENAI_MODEL')?.trim() || DEFAULT_OPENAI_MODEL;
+
+    let completion: OpenAI.Chat.Completions.ChatCompletion;
+    try {
+      completion = await this.openai.chat.completions.create({
+        model,
+        temperature: 0.2,
+        messages: [
+          { role: 'system', content: params.system },
+          { role: 'user', content: params.user },
+        ],
+        ...(params.json
+          ? { response_format: { type: 'json_object' as const } }
+          : {}),
+      });
+    } catch {
+      throw new BadGatewayException('Failed to generate summary from AI provider');
+    }
+
+    const content = completion.choices[0]?.message?.content?.trim();
+    if (!content) {
+      throw new BadGatewayException('AI provider returned an empty summary');
+    }
+
+    const tokens = completion.usage?.total_tokens ?? 0;
+    const cost = this.estimateCost(model, tokens);
+
+    await this.prisma.client.aiRequestLog.create({
+      data: {
+        organizationId: params.actor.organizationId,
+        userId: params.actor.userId,
+        patientId: params.actor.patientId,
+        noteId: params.actor.noteId,
+        prompt: params.prompt,
+        response: content,
+        tokens,
+        model,
+        cost,
+      },
+    });
+
+    return { content, tokens, model };
+  }
+
+  private estimateCost(model: string, tokens: number): number {
+    const rate = MODEL_PRICING[model] ?? DEFAULT_MODEL_PRICING_PER_1K;
+    return (tokens / 1000) * rate;
+  }
+
+  private ensureDisclaimer(text: string): string {
+    if (text.includes(AI_SAFETY_DISCLAIMER)) {
+      return text;
+    }
+    return `${text.trim()}\n\n${AI_SAFETY_DISCLAIMER}`;
+  }
+
+  private parseKeyPoints(content: string): KeyPoints {
+    try {
+      const parsed = JSON.parse(content) as Partial<KeyPoints>;
+      return {
+        keyFindings: this.toStringArray(parsed.keyFindings),
+        actionItems: this.toStringArray(parsed.actionItems),
+        followUpTasks: this.toStringArray(parsed.followUpTasks),
+      };
+    } catch {
+      throw new BadGatewayException('AI provider returned invalid key points JSON');
+    }
+  }
+
+  private toStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
   private async assertPatientInOrg(

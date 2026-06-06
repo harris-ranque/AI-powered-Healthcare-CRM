@@ -7,6 +7,7 @@ import {
   type OnChangeFn,
   type PaginationState,
   type SortingState,
+  type TableMeta,
   useReactTable,
 } from '@tanstack/react-table';
 import type { ReactNode } from 'react';
@@ -21,7 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-type Props<TData, TMeta = unknown> = {
+type Props<TData> = {
   columns: ColumnDef<TData>[];
   data: TData[];
   pageCount: number;
@@ -31,10 +32,10 @@ type Props<TData, TMeta = unknown> = {
   onSortingChange: OnChangeFn<SortingState>;
   isLoading?: boolean;
   emptyState?: ReactNode;
-  meta?: TMeta;
+  meta?: TableMeta<TData>;
 };
 
-export function DataTable<TData, TMeta = unknown>({
+export function DataTable<TData>({
   columns,
   data,
   pageCount,
@@ -45,7 +46,7 @@ export function DataTable<TData, TMeta = unknown>({
   isLoading = false,
   emptyState,
   meta,
-}: Props<TData, TMeta>) {
+}: Props<TData>) {
   const table = useReactTable({
     data,
     columns,

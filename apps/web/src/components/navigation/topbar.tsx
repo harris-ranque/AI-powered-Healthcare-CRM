@@ -20,6 +20,10 @@ const PAGE_META: Record<string, PageMeta> = {
     title: 'Patients',
     description: 'Manage patient records with search, sorting, and pagination.',
   },
+  '/dashboard/calendar': {
+    title: 'Calendar',
+    description: 'View and manage clinic appointments.',
+  },
   '/dashboard/billing': {
     title: 'Billing',
     description: 'Billing management coming soon.',

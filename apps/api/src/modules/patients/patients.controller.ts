@@ -28,6 +28,7 @@ import { UpdatePatientDto } from './dto/update-patient.dto';
 import { PatientsService } from './patients.service';
 import type { Paginated } from './types/paginated.type';
 import type { PatientDetail } from './types/patient-detail.type';
+import type { TimelineEvent } from './types/timeline-event.type';
 
 @Controller('patients')
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionsGuard)
@@ -41,6 +42,15 @@ export class PatientsController {
     @Query() query: ListPatientsDto,
   ): Promise<Paginated<Patient>> {
     return this.patientsService.list(organization.organizationId, query);
+  }
+
+  @Get(':id/timeline')
+  @RequirePermissions(Permission.PATIENT_READ)
+  getTimeline(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentOrganization() organization: OrganizationContext,
+  ): Promise<TimelineEvent[]> {
+    return this.patientsService.getTimeline(id, organization.organizationId);
   }
 
   @Get(':id')

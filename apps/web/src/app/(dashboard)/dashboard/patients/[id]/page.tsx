@@ -8,7 +8,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ActivityTimeline } from '@/features/activity/components/activity-timeline';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { Permission, hasPermission } from '@/features/auth/utils/role-permissions';
 import { NotesList } from '@/features/clinical-notes/components/notes-list';
@@ -17,8 +16,10 @@ import { getErrorMessage } from '@/features/notifications/utils/get-error-messag
 import { DeletePatientDialog } from '@/features/patients/components/delete-patient-dialog';
 import { EditPatientDialog } from '@/features/patients/components/edit-patient-dialog';
 import { PatientOverview } from '@/features/patients/components/patient-overview';
+import { PatientTimeline } from '@/features/patients/components/patient-timeline';
 import { PatientSummaryCard } from '@/features/patients/components/patient-summary-card';
 import { usePatient } from '@/features/patients/hooks/use-patient';
+import { usePatientTimeline } from '@/features/patients/hooks/use-patient-timeline';
 
 export default function PatientDetailPage() {
   const params = useParams<{ id: string }>();
@@ -26,6 +27,10 @@ export default function PatientDetailPage() {
   const user = useAuth().user;
   const patientId = params.id;
   const { data: detail, isLoading, error } = usePatient(patientId);
+  const {
+    data: timelineEvents = [],
+    isLoading: timelineLoading,
+  } = usePatientTimeline(patientId);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -66,7 +71,7 @@ export default function PatientDetailPage() {
     );
   }
 
-  const { patient, files, notes, activity } = detail;
+  const { patient, files } = detail;
 
   return (
     <div className="space-y-6">
@@ -107,20 +112,20 @@ export default function PatientDetailPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="notes">Notes</TabsTrigger>
           <TabsTrigger value="files">Files</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
           <PatientOverview patient={patient} />
         </TabsContent>
         <TabsContent value="notes">
-          <NotesList patientId={patient.id} notes={notes} />
+          <NotesList patientId={patient.id} />
         </TabsContent>
         <TabsContent value="files">
           <FileList patientId={patient.id} files={files} />
         </TabsContent>
-        <TabsContent value="activity">
-          <ActivityTimeline events={activity} />
+        <TabsContent value="timeline">
+          <PatientTimeline events={timelineEvents} isLoading={timelineLoading} />
         </TabsContent>
       </Tabs>
 
