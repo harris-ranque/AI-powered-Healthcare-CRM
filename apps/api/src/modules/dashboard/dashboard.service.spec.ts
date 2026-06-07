@@ -9,9 +9,9 @@ import { DashboardService } from './dashboard.service';
 
 describe('DashboardService', () => {
   let service: DashboardService;
-  let prismaPatient: { count: jest.Mock };
+  let prismaPatient: { count: jest.Mock; findMany: jest.Mock };
   let prismaFile: { count: jest.Mock };
-  let prismaAiRequestLog: { count: jest.Mock };
+  let prismaAiRequestLog: { count: jest.Mock; findMany: jest.Mock };
   let countToday: jest.Mock;
   let listForOrganization: jest.Mock;
 
@@ -46,8 +46,10 @@ describe('DashboardService', () => {
     ).client.aiRequestLog;
 
     prismaPatient.count.mockReset();
+    prismaPatient.findMany.mockReset().mockResolvedValue([]);
     prismaFile.count.mockReset();
     prismaAiRequestLog.count.mockReset();
+    prismaAiRequestLog.findMany.mockReset().mockResolvedValue([]);
     countToday.mockReset().mockResolvedValue(2);
     listForOrganization.mockReset().mockResolvedValue([{ id: 'log-1' }]);
   });
@@ -93,6 +95,69 @@ describe('DashboardService', () => {
 
       expect(listForOrganization).toHaveBeenCalledWith(ORG_ID, { take: 10 });
       expect(result).toEqual(events);
+    });
+  });
+
+  describe('getAnalytics()', () => {
+    function utcDayKey(daysAgo: number): string {
+      const date = new Date();
+      date.setUTCHours(0, 0, 0, 0);
+      date.setUTCDate(date.getUTCDate() - daysAgo);
+      return date.toISOString().slice(0, 10);
+    }
+
+    it('returns zero-filled buckets with cumulative baseline', async () => {
+      prismaPatient.count.mockResolvedValue(7);
+      prismaPatient.findMany.mockResolvedValue([
+        { createdAt: new Date(`${utcDayKey(1)}T12:00:00.000Z`) },
+        { createdAt: new Date(`${utcDayKey(1)}T18:00:00.000Z`) },
+        { createdAt: new Date(`${utcDayKey(0)}T09:00:00.000Z`) },
+      ]);
+      prismaAiRequestLog.findMany.mockResolvedValue([
+        { createdAt: new Date(`${utcDayKey(0)}T10:00:00.000Z`) },
+      ]);
+
+      const result = await service.getAnalytics(ORG_ID, 3);
+
+      expect(prismaPatient.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            organizationId: ORG_ID,
+            deletedAt: null,
+          }),
+        }),
+      );
+      expect(prismaPatient.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ organizationId: ORG_ID }),
+        }),
+      );
+      expect(prismaAiRequestLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ organizationId: ORG_ID }),
+        }),
+      );
+
+      expect(result.patientGrowth).toHaveLength(3);
+      expect(result.aiUsage).toHaveLength(3);
+
+      const yesterday = result.patientGrowth.find(
+        (point) => point.date === utcDayKey(1),
+      );
+      const today = result.patientGrowth.find(
+        (point) => point.date === utcDayKey(0),
+      );
+
+      expect(yesterday?.newPatients).toBe(2);
+      expect(yesterday?.cumulative).toBe(9);
+      expect(today?.newPatients).toBe(1);
+      expect(today?.cumulative).toBe(10);
+
+      const todayAi = result.aiUsage.find((point) => point.date === utcDayKey(0));
+      expect(todayAi?.requests).toBe(1);
+      expect(
+        result.aiUsage.every((point) => typeof point.requests === 'number'),
+      ).toBe(true);
     });
   });
 });

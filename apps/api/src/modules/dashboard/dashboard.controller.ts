@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 
 import { CurrentOrganization } from '../../common/decorators/current-organization.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
@@ -9,7 +9,11 @@ import { Permission } from '../../common/permissions';
 import type { AuditLogWithUser } from '../audit/audit.service';
 import type { OrganizationContext } from '../../common/types/organization-context.type';
 
-import { DashboardService, type DashboardStats } from './dashboard.service';
+import {
+  DashboardService,
+  type DashboardAnalytics,
+  type DashboardStats,
+} from './dashboard.service';
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionsGuard)
@@ -30,5 +34,17 @@ export class DashboardController {
     @CurrentOrganization() organization: OrganizationContext,
   ): Promise<AuditLogWithUser[]> {
     return this.dashboardService.getRecentActivity(organization.organizationId);
+  }
+
+  @Get('analytics')
+  @RequirePermissions(Permission.PATIENT_READ)
+  getAnalytics(
+    @CurrentOrganization() organization: OrganizationContext,
+    @Query('days') days?: string,
+  ): Promise<DashboardAnalytics> {
+    return this.dashboardService.getAnalytics(
+      organization.organizationId,
+      days ? Number(days) : undefined,
+    );
   }
 }

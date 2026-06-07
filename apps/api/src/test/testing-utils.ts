@@ -61,7 +61,7 @@ export const mockPrismaService = {
       },
       auditLog: { create: jest.fn(), findMany: jest.fn() },
       file: { create: jest.fn(), count: jest.fn() },
-      aiRequestLog: { count: jest.fn() },
+      aiRequestLog: { count: jest.fn(), findMany: jest.fn() },
       appointment: {
         create: jest.fn(),
         findMany: jest.fn(),

@@ -7,4 +7,20 @@ export type DashboardStats = {
   appointmentsToday: number;
 };
 
+export type PatientGrowthPoint = {
+  date: string;
+  newPatients: number;
+  cumulative: number;
+};
+
+export type AiUsagePoint = {
+  date: string;
+  requests: number;
+};
+
+export type DashboardAnalytics = {
+  patientGrowth: PatientGrowthPoint[];
+  aiUsage: AiUsagePoint[];
+};
+
 export type { ActivityEvent };
