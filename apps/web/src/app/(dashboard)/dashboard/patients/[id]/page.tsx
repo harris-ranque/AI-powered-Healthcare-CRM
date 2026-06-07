@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -22,11 +22,21 @@ import { PatientSummaryCard } from '@/features/patients/components/patient-summa
 import { usePatient } from '@/features/patients/hooks/use-patient';
 import { usePatientTimeline } from '@/features/patients/hooks/use-patient-timeline';
 
+const PATIENT_TABS = ['overview', 'notes', 'files', 'comments', 'timeline'] as const;
+type PatientTab = (typeof PATIENT_TABS)[number];
+
+function isPatientTab(value: string | null): value is PatientTab {
+  return PATIENT_TABS.includes(value as PatientTab);
+}
+
 export default function PatientDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const user = useAuth().user;
   const patientId = params.id;
+  const tabParam = searchParams.get('tab');
+  const activeTab: PatientTab = isPatientTab(tabParam) ? tabParam : 'overview';
   const { data: detail, isLoading, error } = usePatient(patientId);
   const {
     data: timelineEvents = [],
@@ -108,7 +118,23 @@ export default function PatientDetailPage() {
 
       <PatientSummaryCard patient={patient} />
 
-      <Tabs defaultValue="overview">
+      <Tabs
+        value={activeTab ?? 'overview'}
+        onValueChange={(value) => {
+          const params = new URLSearchParams(searchParams.toString());
+          if (value === 'overview') {
+            params.delete('tab');
+          } else {
+            params.set('tab', value);
+          }
+          const query = params.toString();
+          router.replace(
+            query
+              ? `/dashboard/patients/${patientId}?${query}`
+              : `/dashboard/patients/${patientId}`,
+          );
+        }}
+      >
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="notes">Notes</TabsTrigger>

@@ -16,6 +16,7 @@ import { randomUUID } from 'crypto';
 
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { r2Client } from './r2.client';
 import type { ConfirmUploadDto } from './dto/confirm-upload.dto';
 import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
@@ -47,6 +48,7 @@ export class StorageService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly realtimeService: RealtimeService,
   ) {}
 
   async createUploadUrl(
@@ -146,6 +148,18 @@ export class StorageService {
         metadata: {
           fileName: file.originalName,
           mimeType: file.mimeType,
+          patientId: dto.patientId ?? null,
+        },
+      });
+
+      this.realtimeService.emitNotification(actor.organizationId, {
+        type: 'FILE_UPLOADED',
+        title: 'File uploaded',
+        message: file.originalName,
+        actorId: actor.userId,
+        createdAt: new Date().toISOString(),
+        metadata: {
+          fileId: file.id,
           patientId: dto.patientId ?? null,
         },
       });

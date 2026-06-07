@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  Activity,
   Building2,
   CalendarDays,
   CreditCard,
@@ -69,6 +70,12 @@ const items: NavItem[] = [
     href: '/dashboard/calendar',
     icon: CalendarDays,
     visible: (role) => hasPermission(role, Permission.APPOINTMENT_READ),
+  },
+  {
+    label: 'Activity',
+    href: '/dashboard/activity',
+    icon: Activity,
+    visible: (role) => hasPermission(role, Permission.AUDIT_READ),
   },
   {
     label: 'Billing',

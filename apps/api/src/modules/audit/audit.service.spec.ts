@@ -46,4 +46,21 @@ describe('AuditService', () => {
       }),
     );
   });
+
+  it('listForOrganization filters by actions when provided', async () => {
+    await service.listForOrganization('org-1', {
+      actions: ['PATIENT_CREATED', 'FILE_UPLOADED'],
+      take: 25,
+    });
+
+    expect(prisma.client.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          organizationId: 'org-1',
+          action: { in: ['PATIENT_CREATED', 'FILE_UPLOADED'] },
+        },
+        take: 25,
+      }),
+    );
+  });
 });

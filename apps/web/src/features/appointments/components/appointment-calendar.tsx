@@ -5,14 +5,18 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
+import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { Permission, hasPermission } from '@/features/auth/utils/role-permissions';
 
+import { appointmentsApi } from '../api/appointments.api';
+import { appointmentsQueryKeys } from '../hooks/query-keys';
 import { useAppointmentsList } from '../hooks/use-appointments-list';
 import type { Appointment, AppointmentStatus } from '../types/appointment.type';
 import { getAppointmentEventTitle } from '../utils/appointment-format';
@@ -34,6 +38,9 @@ type Props = {
 export function AppointmentCalendar({ onNewAppointment }: Props) {
   const user = useAuth().user;
   const canWrite = hasPermission(user?.role, Permission.APPOINTMENT_WRITE);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const deepLinkAppointmentId = searchParams.get('appointmentId');
 
   const [range, setRange] = useState<{ from: string; to: string } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -47,6 +54,19 @@ export function AppointmentCalendar({ onNewAppointment }: Props) {
     range ?? {},
     { enabled: range !== null },
   );
+
+  const { data: deepLinkedAppointment } = useQuery({
+    queryKey: appointmentsQueryKeys.detail(deepLinkAppointmentId ?? ''),
+    queryFn: () => appointmentsApi.getById(deepLinkAppointmentId as string),
+    enabled: Boolean(deepLinkAppointmentId),
+  });
+
+  useEffect(() => {
+    if (deepLinkedAppointment) {
+      setSelectedAppointment(deepLinkedAppointment);
+      setDrawerOpen(true);
+    }
+  }, [deepLinkedAppointment]);
 
   const events = useMemo(
     () =>
@@ -145,7 +165,15 @@ export function AppointmentCalendar({ onNewAppointment }: Props) {
       <AppointmentDetailsDrawer
         appointment={selectedAppointment}
         open={drawerOpen}
-        onOpenChange={setDrawerOpen}
+        onOpenChange={(open) => {
+          setDrawerOpen(open);
+          if (!open && deepLinkAppointmentId) {
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete('appointmentId');
+            const query = params.toString();
+            router.replace(query ? `/dashboard/calendar?${query}` : '/dashboard/calendar');
+          }
+        }}
       />
     </div>
   );

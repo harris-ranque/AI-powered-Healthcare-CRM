@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { StorageService } from './storage.service';
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
@@ -50,6 +51,10 @@ describe('StorageService', () => {
         StorageService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditService, useValue: auditService },
+        {
+          provide: RealtimeService,
+          useValue: { emitNotification: jest.fn() },
+        },
       ],
     }).compile();
     service = module.get(StorageService);

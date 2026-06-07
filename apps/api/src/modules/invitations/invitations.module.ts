@@ -7,12 +7,19 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
 import { EmailModule } from '../queues/email/email.module';
+import { RealtimeModule } from '../realtime/realtime.module';
 
 import { InvitationsController } from './invitations.controller';
 import { InvitationsService } from './invitations.service';
 
 @Module({
-  imports: [PrismaModule, EmailModule, AuditModule, forwardRef(() => AuthModule)],
+  imports: [
+    PrismaModule,
+    EmailModule,
+    AuditModule,
+    RealtimeModule,
+    forwardRef(() => AuthModule),
+  ],
   providers: [
     InvitationsService,
     JwtAuthGuard,

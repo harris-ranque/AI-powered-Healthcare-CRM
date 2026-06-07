@@ -9,6 +9,7 @@ import { AiModule } from '../ai/ai.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { AuditModule } from '../audit/audit.module';
 import { ClinicalNotesModule } from '../clinical-notes/clinical-notes.module';
+import { RealtimeModule } from '../realtime/realtime.module';
 import { StorageModule } from '../storage/storage.module';
 
 import { PatientsController } from './patients.controller';
@@ -23,6 +24,7 @@ import { PatientsService } from './patients.service';
     ClinicalNotesModule,
     StorageModule,
     AiModule,
+    RealtimeModule,
   ],
   providers: [
     PatientsService,

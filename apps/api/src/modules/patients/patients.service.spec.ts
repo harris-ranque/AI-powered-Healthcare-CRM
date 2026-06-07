@@ -9,6 +9,7 @@ import { AiService } from '../ai/ai.service';
 import { AppointmentsService } from '../appointments/appointments.service';
 import { AuditService } from '../audit/audit.service';
 import { ClinicalNotesService } from '../clinical-notes/clinical-notes.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { StorageService } from '../storage/storage.service';
 
 import { ListPatientsDto } from './dto/list-patients.dto';
@@ -51,6 +52,10 @@ describe('PatientsService', () => {
         { provide: StorageService, useValue: { listForPatient: listFiles } },
         { provide: AiService, useValue: { listForPatient: listAiSummaries } },
         { provide: AppointmentsService, useValue: { list: listAppointments } },
+        {
+          provide: RealtimeService,
+          useValue: { emitNotification: jest.fn() },
+        },
       ],
     }).compile();
 

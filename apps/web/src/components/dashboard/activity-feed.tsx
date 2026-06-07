@@ -19,6 +19,8 @@ import type { ActivityEvent } from '@/features/activity/types/activity.type';
 type Props = {
   events: ActivityEvent[];
   isLoading?: boolean;
+  title?: string;
+  description?: string;
 };
 
 const ACTION_LABELS: Record<string, { label: string; icon: typeof Activity }> = {
@@ -77,14 +79,17 @@ function ActivityFeedSkeleton() {
   );
 }
 
-export function ActivityFeed({ events, isLoading }: Props) {
+export function ActivityFeed({
+  events,
+  isLoading,
+  title = 'Recent activity',
+  description = 'Latest updates across patients, files, notes, and appointments.',
+}: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent activity</CardTitle>
-        <p className="text-muted-foreground text-sm">
-          Latest updates across patients, files, notes, and appointments.
-        </p>
+        <CardTitle>{title}</CardTitle>
+        <p className="text-muted-foreground text-sm">{description}</p>
       </CardHeader>
       <CardContent>
         {isLoading ? (

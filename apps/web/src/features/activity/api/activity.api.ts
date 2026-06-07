@@ -7,4 +7,9 @@ export const activityApi = {
     const response = await api.get<ActivityEvent[]>(`/patients/${patientId}/activity`);
     return response.data;
   },
+
+  listForOrganization: async (): Promise<ActivityEvent[]> => {
+    const response = await api.get<ActivityEvent[]>('/audit/activity');
+    return response.data;
+  },
 };

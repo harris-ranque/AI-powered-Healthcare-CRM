@@ -48,12 +48,17 @@ export class AuditService {
 
   listForOrganization(
     organizationId: string,
-    options: { take?: number } = {},
+    options: { take?: number; actions?: string[] } = {},
   ): Promise<AuditLogWithUser[]> {
     const take = options.take ?? 100;
 
     return this.prisma.client.auditLog.findMany({
-      where: { organizationId },
+      where: {
+        organizationId,
+        ...(options.actions?.length
+          ? { action: { in: options.actions } }
+          : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take,
       include: auditUserInclude,

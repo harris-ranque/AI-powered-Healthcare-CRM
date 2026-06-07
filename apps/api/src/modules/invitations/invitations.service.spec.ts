@@ -8,6 +8,7 @@ import {
 import { Permission } from '../../common/permissions';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { EmailService } from '../queues/email/email.service';
 import { InvitationsService } from './invitations.service';
 
@@ -43,6 +44,10 @@ describe('InvitationsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: EmailService, useValue: emailService },
         { provide: AuditService, useValue: auditService },
+        {
+          provide: RealtimeService,
+          useValue: { emitNotification: jest.fn() },
+        },
       ],
     }).compile();
 

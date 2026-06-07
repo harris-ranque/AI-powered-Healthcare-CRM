@@ -4,6 +4,8 @@ import { usePathname } from 'next/navigation';
 import { Menu } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { NotificationBell } from '@/features/notifications/components/notification-bell';
+import { GlobalSearch } from '@/features/search/components/global-search';
 import { UserMenu } from '@/components/navigation/user-menu';
 
 type PageMeta = {
@@ -103,7 +105,9 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         ) : null}
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
+        <GlobalSearch />
+        <NotificationBell />
         <UserMenu settingsHref={settingsHref} />
       </div>
     </header>

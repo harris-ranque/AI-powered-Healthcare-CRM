@@ -12,6 +12,7 @@ import type { AppointmentWithRelations } from '../appointments/appointments.serv
 import { AuditService } from '../audit/audit.service';
 import { ClinicalNotesService } from '../clinical-notes/clinical-notes.service';
 import type { ClinicalNoteWithAuthor } from '../clinical-notes/clinical-notes.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { StorageService } from '../storage/storage.service';
 
 import { CreatePatientDto } from './dto/create-patient.dto';
@@ -41,6 +42,7 @@ export class PatientsService {
     private readonly storageService: StorageService,
     private readonly aiService: AiService,
     private readonly appointmentsService: AppointmentsService,
+    private readonly realtimeService: RealtimeService,
   ) {}
 
   async create(dto: CreatePatientDto, actor: PatientActor): Promise<Patient> {
@@ -55,6 +57,15 @@ export class PatientsService {
         action: 'PATIENT_CREATED',
         resource: 'PATIENT',
         resourceId: patient.id,
+      });
+
+      this.realtimeService.emitNotification(actor.organizationId, {
+        type: 'PATIENT_CREATED',
+        title: 'Patient created',
+        message: `${patient.firstName} ${patient.lastName} was added`,
+        actorId: actor.userId,
+        createdAt: new Date().toISOString(),
+        metadata: { patientId: patient.id },
       });
 
       return patient;

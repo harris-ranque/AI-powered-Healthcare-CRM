@@ -9,6 +9,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../database/prisma.service';
 import { mockPrismaService } from '../../test/testing-utils';
 import { AuditService } from '../audit/audit.service';
+import { RealtimeService } from '../realtime/realtime.service';
 
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -55,6 +56,10 @@ describe('AppointmentsService', () => {
         AppointmentsService,
         mockPrismaService,
         { provide: AuditService, useValue: { log: auditLog } },
+        {
+          provide: RealtimeService,
+          useValue: { emitNotification: jest.fn() },
+        },
       ],
     }).compile();
 

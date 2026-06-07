@@ -33,6 +33,7 @@ import { ClinicalNotesModule } from './modules/clinical-notes/clinical-notes.mod
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { CommentsModule } from './modules/comments/comments.module';
+import { SearchModule } from './modules/search/search.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { CommentsModule } from './modules/comments/comments.module';
     AppointmentsModule,
     DashboardModule,
     CommentsModule,
+    SearchModule,
     HealthModule,
     StripeModule,
     ThrottlerModule.forRoot([

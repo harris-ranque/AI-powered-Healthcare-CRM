@@ -8,6 +8,7 @@ import { AppointmentStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { RealtimeService } from '../realtime/realtime.service';
 
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { ListAppointmentsDto } from './dto/list-appointments.dto';
@@ -37,6 +38,7 @@ export class AppointmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly realtimeService: RealtimeService,
   ) {}
 
   async create(
@@ -77,6 +79,21 @@ export class AppointmentsService {
       resource: 'APPOINTMENT',
       resourceId: appointment.id,
       metadata: { patientId: dto.patientId },
+    });
+
+    const patientName = appointment.patient
+      ? `${appointment.patient.firstName} ${appointment.patient.lastName}`
+      : 'a patient';
+    this.realtimeService.emitNotification(actor.organizationId, {
+      type: 'APPOINTMENT_CREATED',
+      title: 'Appointment created',
+      message: `Appointment scheduled for ${patientName}`,
+      actorId: actor.userId,
+      createdAt: new Date().toISOString(),
+      metadata: {
+        appointmentId: appointment.id,
+        patientId: dto.patientId,
+      },
     });
 
     return appointment;
