@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { Permission, hasPermission } from '@/features/auth/utils/role-permissions';
+import { PatientCommentThread } from '@/features/comments/components/patient-comment-thread';
 import { NotesList } from '@/features/clinical-notes/components/notes-list';
 import { FileList } from '@/features/files/components/file-list';
 import { getErrorMessage } from '@/features/notifications/utils/get-error-message';
@@ -112,6 +113,7 @@ export default function PatientDetailPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="notes">Notes</TabsTrigger>
           <TabsTrigger value="files">Files</TabsTrigger>
+          <TabsTrigger value="comments">Comments</TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
 
@@ -123,6 +125,9 @@ export default function PatientDetailPage() {
         </TabsContent>
         <TabsContent value="files">
           <FileList patientId={patient.id} files={files} />
+        </TabsContent>
+        <TabsContent value="comments">
+          <PatientCommentThread patientId={patient.id} />
         </TabsContent>
         <TabsContent value="timeline">
           <PatientTimeline events={timelineEvents} isLoading={timelineLoading} />

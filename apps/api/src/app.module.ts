@@ -32,6 +32,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { ClinicalNotesModule } from './modules/clinical-notes/clinical-notes.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { CommentsModule } from './modules/comments/comments.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     ClinicalNotesModule,
     AppointmentsModule,
     DashboardModule,
+    CommentsModule,
     HealthModule,
     StripeModule,
     ThrottlerModule.forRoot([
