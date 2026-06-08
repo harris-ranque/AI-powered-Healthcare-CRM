@@ -44,11 +44,53 @@ async function bootstrap() {
 
   app.use(compression());
 
+  // Allow a comma-separated list of origins so the API can serve both local
+  // dev and a deployed frontend (e.g. Vercel) at the same time. Falls back to
+  // FRONTEND_URL when CORS_ORIGINS is not set.
+  const allowedOrigins = (
+    process.env.CORS_ORIGINS ??
+    process.env.FRONTEND_URL ??
+    ''
+  )
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  // Localhost (any port) is always allowed so local dev works without having to
+  // keep it in the allowlist alongside the deployed origin.
+  const isLocalhostOrigin = (origin: string): boolean => {
+    try {
+      const { hostname } = new URL(origin);
+      return hostname === 'localhost' || hostname === '127.0.0.1';
+    } catch {
+      return false;
+    }
+  };
+
   app.enableCors({
-    origin: [process.env.FRONTEND_URL],
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // No Origin header (curl, server-to-server, same-origin) — allow.
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        isLocalhostOrigin(origin)
+      ) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    // ngrok-skip-browser-warning lets browser fetch/XHR bypass the ngrok interstitial.
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'ngrok-skip-browser-warning',
+    ],
   });
 
   app.setGlobalPrefix('api');

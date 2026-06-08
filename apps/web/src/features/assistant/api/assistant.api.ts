@@ -71,6 +71,7 @@ export const assistantApi = {
         headers: {
           'Content-Type': 'application/json',
           Accept: 'text/event-stream',
+          'ngrok-skip-browser-warning': 'true',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: 'include',
