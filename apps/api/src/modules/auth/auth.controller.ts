@@ -184,12 +184,29 @@ export class AuthController {
     return { access_token: tokens.access_token };
   }
 
+  /**
+   * Base cookie attributes. When the frontend is served from a different site
+   * than the API (e.g. Vercel frontend + ngrok/hosted API), set
+   * CROSS_SITE_COOKIES=true so the browser will store/send the cookies on
+   * cross-site requests (requires SameSite=None + Secure).
+   */
+  private baseCookieOptions(): {
+    secure: boolean;
+    sameSite: 'none' | 'lax';
+    path: string;
+  } {
+    const crossSite = process.env.CROSS_SITE_COOKIES === 'true';
+    return {
+      secure: crossSite || process.env.NODE_ENV === 'production',
+      sameSite: crossSite ? 'none' : 'lax',
+      path: '/',
+    };
+  }
+
   private setRefreshTokenCookie(res: Response, refreshToken: string): void {
     const maxAge = 7 * 24 * 60 * 60 * 1000;
     const cookieOptions = {
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      path: '/',
+      ...this.baseCookieOptions(),
       maxAge,
     };
 
@@ -224,11 +241,7 @@ export class AuthController {
   }
 
   private clearAuthCookies(res: Response): void {
-    const options = {
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      path: '/',
-    };
+    const options = this.baseCookieOptions();
 
     res.clearCookie('refresh_token', { ...options, httpOnly: true });
     res.clearCookie('has_session', { ...options, httpOnly: false });
@@ -254,7 +267,10 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
-  async googleAuthCallback(@Req() req: Request, @Res() res: Response): Promise<void> {
+  async googleAuthCallback(
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
     const result = req.user as GoogleValidatedResult;
     const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
 

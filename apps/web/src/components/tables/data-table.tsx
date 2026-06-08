@@ -100,7 +100,10 @@ export function DataTable<TData>({
 
           {!isLoading && table.getRowModel().rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={visibleColumnCount} className="py-8 text-center text-muted-foreground">
+              <TableCell
+                colSpan={visibleColumnCount}
+                className="text-muted-foreground py-8 text-center"
+              >
                 {emptyState ?? 'No records found.'}
               </TableCell>
             </TableRow>

@@ -17,6 +17,10 @@ export const envValidationSchema = Joi.object({
 
   API_VERSION: Joi.string().pattern(/^\d+$/).default('1'),
 
+  FRONTEND_URL: Joi.string().uri().optional(),
+  CORS_ORIGINS: Joi.string().allow('').optional(),
+  CROSS_SITE_COOKIES: Joi.boolean().optional(),
+
   GOOGLE_CLIENT_ID: Joi.string().allow('').optional(),
   GOOGLE_CLIENT_SECRET: Joi.string().allow('').optional(),
   GOOGLE_CALLBACK_URL: Joi.string().optional(),
