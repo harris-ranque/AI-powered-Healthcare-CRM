@@ -1,8 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import type { AuditLog } from '@prisma/client';
+import { Prisma, type AuditLog } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
+
+const auditUserInclude = {
+  user: { select: { id: true, name: true, email: true } },
+} as const;
+
+export type AuditLogWithUser = Prisma.AuditLogGetPayload<{
+  include: typeof auditUserInclude;
+}>;
 
 export type AuditLogInput = {
   userId?: string;
@@ -36,6 +43,51 @@ export class AuditService {
       },
       orderBy: { createdAt: 'desc' },
       take,
+    });
+  }
+
+  listForOrganization(
+    organizationId: string,
+    options: { take?: number; actions?: string[] } = {},
+  ): Promise<AuditLogWithUser[]> {
+    const take = options.take ?? 100;
+
+    return this.prisma.client.auditLog.findMany({
+      where: {
+        organizationId,
+        ...(options.actions?.length
+          ? { action: { in: options.actions } }
+          : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+      include: auditUserInclude,
+    });
+  }
+
+  listForPatient(
+    organizationId: string,
+    patientId: string,
+    options: { take?: number } = {},
+  ): Promise<AuditLogWithUser[]> {
+    const take = options.take ?? 100;
+
+    return this.prisma.client.auditLog.findMany({
+      where: {
+        organizationId,
+        OR: [
+          { resource: 'PATIENT', resourceId: patientId },
+          {
+            metadata: {
+              path: ['patientId'],
+              equals: patientId,
+            },
+          },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+      include: auditUserInclude,
     });
   }
 }

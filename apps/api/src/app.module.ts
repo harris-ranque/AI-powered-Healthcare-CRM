@@ -28,6 +28,13 @@ import { MetricsModule } from './modules/metrics/metrics.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { QueuesModule } from './modules/queues/queues.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
+import { AiModule } from './modules/ai/ai.module';
+import { ClinicalNotesModule } from './modules/clinical-notes/clinical-notes.module';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { CommentsModule } from './modules/comments/comments.module';
+import { SearchModule } from './modules/search/search.module';
+import { AssistantModule } from './modules/assistant/assistant.module';
 
 @Module({
   imports: [
@@ -51,6 +58,13 @@ import { InvitationsModule } from './modules/invitations/invitations.module';
     OrganizationsModule,
     InvitationsModule,
     PatientsModule,
+    AiModule,
+    ClinicalNotesModule,
+    AppointmentsModule,
+    DashboardModule,
+    CommentsModule,
+    SearchModule,
+    AssistantModule,
     HealthModule,
     StripeModule,
     ThrottlerModule.forRoot([

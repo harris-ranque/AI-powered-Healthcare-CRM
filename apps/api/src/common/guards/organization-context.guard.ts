@@ -69,10 +69,29 @@ export class OrganizationContextGuard implements CanActivate {
       );
     }
 
+    // The organization owner always has owner-level permissions, even if their
+    // OrganizationMember.role has drifted from CLINIC_OWNER (e.g. legacy
+    // accounts or solo providers who own their org). Only an extra lookup is
+    // needed when the membership role is not already an owner role.
+    let effectiveRole = membership.role;
+    if (
+      effectiveRole !== Role.CLINIC_OWNER &&
+      effectiveRole !== Role.SUPER_ADMIN
+    ) {
+      const organizationRecord =
+        await this.prisma.client.organization.findUnique({
+          where: { id: membership.organizationId },
+          select: { ownerId: true },
+        });
+      if (organizationRecord?.ownerId === userId) {
+        effectiveRole = Role.CLINIC_OWNER;
+      }
+    }
+
     const organization: OrganizationContext = {
       organizationId: membership.organizationId,
-      role: membership.role,
-      permissions: getPermissionsForRole(membership.role),
+      role: effectiveRole,
+      permissions: getPermissionsForRole(effectiveRole),
     };
 
     request.organization = organization;

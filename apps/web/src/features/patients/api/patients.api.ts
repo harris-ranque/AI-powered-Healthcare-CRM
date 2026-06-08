@@ -1,5 +1,7 @@
 import { api } from '@/lib/api/client';
 
+import type { PatientDetail } from '../types/patient-detail.type';
+import type { TimelineEvent } from '../types/timeline.type';
 import type {
   CreatePatientInput,
   ListPatientsQuery,
@@ -26,8 +28,12 @@ export const patientsApi = {
     });
     return response.data;
   },
-  getById: async (id: string): Promise<Patient> => {
-    const response = await api.get<Patient>(`/patients/${id}`);
+  getById: async (id: string): Promise<PatientDetail> => {
+    const response = await api.get<PatientDetail>(`/patients/${id}`);
+    return response.data;
+  },
+  getTimeline: async (id: string): Promise<TimelineEvent[]> => {
+    const response = await api.get<TimelineEvent[]>(`/patients/${id}/timeline`);
     return response.data;
   },
   create: async (input: CreatePatientInput): Promise<Patient> => {

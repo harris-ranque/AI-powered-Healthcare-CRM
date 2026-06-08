@@ -14,6 +14,8 @@ import { randomBytes } from 'node:crypto';
 import { Permission } from '../../common/permissions';
 import type { OrganizationContext } from '../../common/types/organization-context.type';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { EmailService } from '../queues/email/email.service';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
 
@@ -40,6 +42,8 @@ export class InvitationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    private readonly auditService: AuditService,
+    private readonly realtimeService: RealtimeService,
   ) {}
 
   async create(
@@ -114,6 +118,24 @@ export class InvitationsService {
       inviteUrl,
       organizationName: org.name,
       role: dto.role,
+    });
+
+    await this.auditService.log({
+      userId: invitedByUserId,
+      organizationId: organization.organizationId,
+      action: 'USER_INVITED',
+      resource: 'INVITATION',
+      resourceId: invitation.id,
+      metadata: { email, role: dto.role },
+    });
+
+    this.realtimeService.emitNotification(organization.organizationId, {
+      type: 'USER_INVITED',
+      title: 'User invited',
+      message: `${email} was invited as ${dto.role}`,
+      actorId: invitedByUserId,
+      createdAt: new Date().toISOString(),
+      metadata: { invitationId: invitation.id, email, role: dto.role },
     });
 
     return this.toListItem(invitation);

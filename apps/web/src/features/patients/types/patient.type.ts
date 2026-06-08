@@ -12,6 +12,7 @@ export type PatientSortOrder = (typeof patientSortOrders)[number];
 export type Patient = {
   id: string;
   organizationId: string;
+  userId: string | null;
   firstName: string;
   lastName: string;
   email: string | null;

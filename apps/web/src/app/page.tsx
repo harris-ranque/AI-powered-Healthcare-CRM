@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { TodayOverview } from '@/components/landing/today-overview';
 
 const features = [
   {
@@ -58,8 +59,6 @@ const personas = [
     accent: 'from-medical-mint/15 to-sunrise/10',
   },
 ];
-
-const statColors = ['text-primary', 'text-medical-sky', 'text-sunrise'];
 
 export default function LandingPage() {
   return (
@@ -122,54 +121,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="medical-card-glow bg-card rounded-2xl border p-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <span className="bg-primary/15 text-primary inline-flex h-10 w-10 items-center justify-center rounded-full">
-                    <HeartPulse className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold">Today&apos;s overview</p>
-                    <p className="text-muted-foreground text-xs">Live dashboard preview</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: 'Patients', value: '1,284' },
-                    { label: 'Visits', value: '38' },
-                    { label: 'Pending', value: '6' },
-                  ].map((stat, index) => (
-                    <div
-                      key={stat.label}
-                      className="bg-secondary/60 rounded-lg border p-3"
-                    >
-                      <p className={`text-2xl font-bold ${statColors[index]}`}>
-                        {stat.value}
-                      </p>
-                      <p className="text-muted-foreground text-xs">{stat.label}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="space-y-2">
-                  {[
-                    { name: 'Aisha Khan', time: '09:30', tag: 'Follow-up', tagClass: 'text-primary' },
-                    { name: 'Marco Silva', time: '10:15', tag: 'New patient', tagClass: 'text-medical-sky' },
-                    { name: 'Priya Shah', time: '11:00', tag: 'Lab review', tagClass: 'text-medical-mint' },
-                  ].map((row) => (
-                    <div
-                      key={row.name}
-                      className="bg-muted/50 flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
-                    >
-                      <div>
-                        <p className="font-medium">{row.name}</p>
-                        <p className={`text-xs font-medium ${row.tagClass}`}>{row.tag}</p>
-                      </div>
-                      <span className="text-muted-foreground text-xs">{row.time}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <TodayOverview />
           </div>
         </section>
 

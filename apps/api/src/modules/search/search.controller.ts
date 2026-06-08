@@ -1,42 +1,35 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 
+import { CurrentOrganization } from '../../common/decorators/current-organization.decorator';
+import { RequireAnyPermissions } from '../../common/decorators/require-any-permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
+import { OrganizationContextGuard } from '../../common/guards/organization-context.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { Permission } from '../../common/permissions';
+import type { OrganizationContext } from '../../common/types/organization-context.type';
 
+import type { SearchResults } from './search-results.type';
 import { SearchService } from './search.service';
 
-type SearchHit = {
-  _id: string;
-  _index: string;
-  _score: number | null;
-  _source: Record<string, unknown>;
-};
-
-type SearchResponseBody = {
-  hits: {
-    hits: SearchHit[];
-  };
-};
-
 @Controller('search')
+@UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionsGuard)
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
-  @UseGuards(JwtAuthGuard)
   @Get()
-  async search(@Query('q') q: string): Promise<SearchHit[]> {
-    const response = await this.searchService.getClient().search({
-      index: 'patients',
-      body: {
-        query: {
-          multi_match: {
-            query: q,
-            fields: ['name', 'email'],
-          },
-        },
-      },
-    });
-
-    const body = response.body as unknown as SearchResponseBody;
-    return body.hits.hits;
+  @RequireAnyPermissions(
+    Permission.PATIENT_READ,
+    Permission.APPOINTMENT_READ,
+    Permission.FILE_READ,
+  )
+  search(
+    @CurrentOrganization() organization: OrganizationContext,
+    @Query('q') q?: string,
+  ): Promise<SearchResults> {
+    return this.searchService.search(
+      organization.organizationId,
+      q ?? '',
+      organization.permissions,
+    );
   }
 }

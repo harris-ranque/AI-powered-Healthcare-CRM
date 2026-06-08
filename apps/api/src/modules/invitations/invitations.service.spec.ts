@@ -7,6 +7,8 @@ import {
 
 import { Permission } from '../../common/permissions';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { EmailService } from '../queues/email/email.service';
 import { InvitationsService } from './invitations.service';
 
@@ -27,6 +29,7 @@ describe('InvitationsService', () => {
     },
   };
   const emailService = { sendInvitationEmail: jest.fn() };
+  const auditService = { log: jest.fn() };
 
   const orgContext = {
     organizationId: 'org-1',
@@ -40,6 +43,11 @@ describe('InvitationsService', () => {
         InvitationsService,
         { provide: PrismaService, useValue: prisma },
         { provide: EmailService, useValue: emailService },
+        { provide: AuditService, useValue: auditService },
+        {
+          provide: RealtimeService,
+          useValue: { emitNotification: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -81,6 +89,14 @@ describe('InvitationsService', () => {
 
     expect(result.email).toBe('client@test.com');
     expect(emailService.sendInvitationEmail).toHaveBeenCalled();
+    expect(auditService.log).toHaveBeenCalledWith({
+      userId: 'user-1',
+      organizationId: 'org-1',
+      action: 'USER_INVITED',
+      resource: 'INVITATION',
+      resourceId: 'inv-1',
+      metadata: { email: 'client@test.com', role: Role.PATIENT },
+    });
   });
 
   it('creates staff invite when STAFF_INVITE is granted', async () => {

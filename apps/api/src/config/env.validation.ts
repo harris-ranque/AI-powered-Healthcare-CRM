@@ -27,6 +27,9 @@ export const envValidationSchema = Joi.object({
   SMTP_PASS: Joi.string().allow('').optional(),
   MAIL_FROM: Joi.string().allow('').optional(),
 
+  OPENAI_API_KEY: Joi.string().allow('').optional(),
+  OPENAI_MODEL: Joi.string().allow('').optional(),
+
   LOG_LEVEL: Joi.string()
     .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')
     .optional(),

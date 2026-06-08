@@ -18,8 +18,10 @@ export function useUpdatePatient() {
     mutationFn: ({ id, input }: UpdatePatientVariables) => patientsApi.update(id, input),
     onSuccess: async (patient) => {
       toast.success('Patient updated');
-      await queryClient.invalidateQueries({ queryKey: [...patientsQueryKeys.all, 'list'] });
-      queryClient.setQueryData(patientsQueryKeys.detail(patient.id), patient);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [...patientsQueryKeys.all, 'list'] }),
+        queryClient.invalidateQueries({ queryKey: patientsQueryKeys.detail(patient.id) }),
+      ]);
     },
     onError: (error: unknown) => {
       toast.error(getErrorMessage(error, 'Failed to update patient'));

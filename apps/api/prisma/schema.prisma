@@ -29,9 +29,16 @@ model User {
 
   auditLogs AuditLog[]
 
+  aiRequestLogs AiRequestLog[]
+
+  clinicalNotes ClinicalNote[]
+
   organizationMemberships OrganizationMember[]
   patientProfile          Patient?
   sentInvitations         Invitation[]         @relation("InvitationInviter")
+  appointments            Appointment[]        @relation("AppointmentProvider")
+  comments                Comment[]
+  assistantConversations  AssistantConversation[]
 }
 
 model Organization {
@@ -55,9 +62,14 @@ model Organization {
   files               File[]
   patients            Patient[]
   auditLogs           AuditLog[]
+  aiRequestLogs       AiRequestLog[]
+  clinicalNotes       ClinicalNote[]
   organizationMembers OrganizationMember[]
   invitations         Invitation[]
+  appointments        Appointment[]
+  comments            Comment[]
   apiKeys             ApiKey[]
+  assistantConversations AssistantConversation[]
 
   // =========================
   // SAAS Billing
@@ -101,6 +113,8 @@ model File {
   organization   Organization @relation(fields: [organizationId], references: [id])
   uploadedById   String
   uploadedBy     User         @relation(fields: [uploadedById], references: [id])
+  patientId      String?
+  patient        Patient?     @relation(fields: [patientId], references: [id])
   originalName   String
   mimeType       String
   size           Int
@@ -110,6 +124,7 @@ model File {
 
   @@index([organizationId])
   @@index([uploadedById])
+  @@index([patientId])
 }
 
 model Notification {
@@ -147,6 +162,48 @@ model AuditLog {
   @@index([createdAt])
 }
 
+model AiRequestLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  patientId      String?
+  patient        Patient?     @relation(fields: [patientId], references: [id])
+  noteId         String?
+  prompt         String
+  response       String
+  tokens         Int
+  model          String       @default("")
+  cost           Float        @default(0)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([patientId])
+  @@index([createdAt])
+}
+
+model ClinicalNote {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  patientId      String
+  patient        Patient      @relation(fields: [patientId], references: [id])
+  authorId       String
+  author         User         @relation(fields: [authorId], references: [id])
+  title          String?
+  body           String
+  aiSummary      String?
+  keyPoints      Json?
+  visitSummary   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([patientId, createdAt])
+  @@index([organizationId])
+}
+
 model Patient {
   id             String       @id @default(uuid())
   organizationId String
@@ -163,6 +220,13 @@ model Patient {
   address     String?
   notes       String?
 
+  files         File[]
+  clinicalNotes ClinicalNote[]
+  aiRequestLogs AiRequestLog[]
+  appointments  Appointment[]
+  comments      Comment[]
+  assistantConversations AssistantConversation[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -173,6 +237,47 @@ model Patient {
   @@index([organizationId])
   @@index([organizationId, deletedAt])
   @@index([organizationId, lastName, firstName])
+}
+
+model Appointment {
+  id             String            @id @default(uuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  patientId      String
+  patient        Patient           @relation(fields: [patientId], references: [id])
+  providerId     String?
+  provider       User?             @relation("AppointmentProvider", fields: [providerId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime
+  status         AppointmentStatus @default(SCHEDULED)
+  title          String?
+  reason         String?
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  comments       Comment[]
+
+  @@index([organizationId, startsAt])
+  @@index([patientId])
+  @@index([providerId, startsAt])
+}
+
+model Comment {
+  id             String        @id @default(uuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  patientId      String?
+  patient        Patient?      @relation(fields: [patientId], references: [id])
+  appointmentId  String?
+  appointment    Appointment?  @relation(fields: [appointmentId], references: [id])
+  authorId       String
+  author         User          @relation(fields: [authorId], references: [id])
+  body           String
+  createdAt      DateTime      @default(now())
+
+  @@index([patientId, createdAt])
+  @@index([appointmentId, createdAt])
+  @@index([organizationId])
 }
 
 model OrganizationMember {
@@ -201,6 +306,14 @@ model ApiKey {
   createdAt      DateTime     @default(now())
 
   @@index([organizationId])
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
 }
 
 enum Role {
@@ -248,4 +361,36 @@ enum SubscriptionPlan {
   STARTER
   PROFESSIONAL
   ENTERPRISE
+}
+
+enum AssistantMessageRole {
+  USER
+  ASSISTANT
+}
+
+model AssistantConversation {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  patientId      String
+  patient        Patient  @relation(fields: [patientId], references: [id])
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  title          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  messages       AssistantMessage[]
+
+  @@index([patientId, updatedAt])
+}
+
+model AssistantMessage {
+  id             String   @id @default(uuid())
+  conversationId String
+  conversation   AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           AssistantMessageRole
+  content        String
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId, createdAt])
 }

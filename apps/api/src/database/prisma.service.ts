@@ -66,6 +66,29 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this.client.file.create({ data });
   }
 
+  findFilesByPatient(
+    organizationId: string,
+    patientId: string,
+  ): Promise<StoredFile[]> {
+    return this.client.file.findMany({
+      where: { organizationId, patientId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  findFileById(
+    id: string,
+    organizationId: string,
+  ): Promise<StoredFile | null> {
+    return this.client.file.findFirst({
+      where: { id, organizationId },
+    });
+  }
+
+  deleteFile(id: string): Promise<StoredFile> {
+    return this.client.file.delete({ where: { id } });
+  }
+
   findOrganizationMembership(
     organizationId: string,
     userId: string,

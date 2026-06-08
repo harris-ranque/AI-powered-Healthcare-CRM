@@ -4,11 +4,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  Activity,
   Building2,
+  CalendarDays,
   CreditCard,
   LayoutDashboard,
-  LogOut,
-  Settings,
   ShieldCheck,
   Stethoscope,
   User,
@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '@/features/auth/hooks/use-auth';
-import { useLogout } from '@/features/auth/hooks/use-logout';
 import { Permission, hasPermission } from '@/features/auth/utils/role-permissions';
 import { Role } from '@/features/auth/types/role.type';
 import { cn } from '@/lib/utils';
@@ -67,6 +66,18 @@ const items: NavItem[] = [
     visible: (role) => hasPermission(role, Permission.PATIENT_READ),
   },
   {
+    label: 'Calendar',
+    href: '/dashboard/calendar',
+    icon: CalendarDays,
+    visible: (role) => hasPermission(role, Permission.APPOINTMENT_READ),
+  },
+  {
+    label: 'Activity',
+    href: '/dashboard/activity',
+    icon: Activity,
+    visible: (role) => hasPermission(role, Permission.AUDIT_READ),
+  },
+  {
     label: 'Billing',
     href: '/dashboard/billing',
     icon: CreditCard,
@@ -80,12 +91,6 @@ const items: NavItem[] = [
       hasPermission(role, Permission.MEMBER_MANAGE) ||
       hasPermission(role, Permission.CLIENT_INVITE),
   },
-  {
-    label: 'Settings',
-    href: '/dashboard/settings',
-    icon: Settings,
-    visible: (role) => hasPermission(role, Permission.ORG_MANAGE) || role === Role.CLINIC_OWNER,
-  },
 ];
 
 type Props = {
@@ -95,7 +100,6 @@ type Props = {
 
 export function DashboardSidebarContent({ onNavigate, className }: Props) {
   const pathname = usePathname();
-  const { logout, loading } = useLogout();
   const user = useAuth().user;
   const visibleItems = items.filter((item) => item.visible(user?.role));
   const persona = getPersona(user?.role);
@@ -147,18 +151,6 @@ export function DashboardSidebarContent({ onNavigate, className }: Props) {
           );
         })}
       </nav>
-
-      <div className="border-sidebar-border border-t p-3">
-        <button
-          type="button"
-          onClick={() => void logout()}
-          disabled={loading}
-          className="text-destructive hover:bg-destructive/10 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm disabled:opacity-50"
-        >
-          <LogOut className="h-4 w-4" />
-          {loading ? 'Logging out...' : 'Log out'}
-        </button>
-      </div>
     </div>
   );
 }

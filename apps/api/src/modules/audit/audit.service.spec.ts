@@ -1,19 +1,66 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+
+import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from './audit.service';
-import { mockPrismaService } from '../../test/testing-utils';
 
 describe('AuditService', () => {
+  const prisma = {
+    client: {
+      auditLog: {
+        create: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    },
+  };
+
   let service: AuditService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [AuditService, mockPrismaService],
+    jest.clearAllMocks();
+    const module = await Test.createTestingModule({
+      providers: [
+        AuditService,
+        { provide: PrismaService, useValue: prisma },
+      ],
     }).compile();
-
-    service = module.get<AuditService>(AuditService);
+    service = module.get(AuditService);
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+  it('listForPatient filters by patient resource and metadata', async () => {
+    await service.listForPatient('org-1', 'patient-1');
+
+    expect(prisma.client.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          organizationId: 'org-1',
+          OR: [
+            { resource: 'PATIENT', resourceId: 'patient-1' },
+            {
+              metadata: {
+                path: ['patientId'],
+                equals: 'patient-1',
+              },
+            },
+          ],
+        },
+      }),
+    );
+  });
+
+  it('listForOrganization filters by actions when provided', async () => {
+    await service.listForOrganization('org-1', {
+      actions: ['PATIENT_CREATED', 'FILE_UPLOADED'],
+      take: 25,
+    });
+
+    expect(prisma.client.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          organizationId: 'org-1',
+          action: { in: ['PATIENT_CREATED', 'FILE_UPLOADED'] },
+        },
+        take: 25,
+      }),
+    );
   });
 });
