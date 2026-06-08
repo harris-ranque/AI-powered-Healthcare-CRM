@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+import { CLIENT_SESSION_COOKIE } from '@/features/auth/utils/client-session-hint';
+
 const staffProtectedPrefixes = ['/dashboard', '/onboarding'];
 const portalProtectedPrefixes = ['/portal'];
 const authRoutes = ['/login', '/register'];
+
+const isCrossSiteDeploy = process.env.NEXT_PUBLIC_CROSS_SITE === 'true';
 
 /** Treat cookie as a session only if the JWT is present and not expired. */
 function hasValidRefreshCookie(request: NextRequest): boolean {
@@ -28,9 +32,21 @@ function hasValidRefreshCookie(request: NextRequest): boolean {
   }
 }
 
+/** Cross-site: refresh_token is on the API host; use a first-party hint on the frontend. */
+function hasCrossSiteSession(request: NextRequest): boolean {
+  return request.cookies.get(CLIENT_SESSION_COOKIE)?.value === '1';
+}
+
+function hasSession(request: NextRequest): boolean {
+  if (isCrossSiteDeploy) {
+    return hasCrossSiteSession(request);
+  }
+  return hasValidRefreshCookie(request);
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasSession = hasValidRefreshCookie(request);
+  const hasSessionCookie = hasSession(request);
 
   const isStaffProtected = staffProtectedPrefixes.some((prefix) =>
     pathname.startsWith(prefix),
@@ -41,11 +57,11 @@ export function proxy(request: NextRequest) {
   const isAuthPage =
     authRoutes.includes(pathname) || pathname.startsWith('/register/');
 
-  if ((isStaffProtected || isPortalProtected) && !hasSession) {
+  if ((isStaffProtected || isPortalProtected) && !hasSessionCookie) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  if (isAuthPage && hasSession) {
+  if (isAuthPage && hasSessionCookie) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

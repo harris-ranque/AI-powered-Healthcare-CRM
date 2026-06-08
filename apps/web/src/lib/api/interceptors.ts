@@ -1,6 +1,7 @@
 'use client';
 
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { clearClientSessionHint } from '@/features/auth/utils/client-session-hint';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { api } from './client';
 
@@ -86,6 +87,7 @@ export function setupApiInterceptors(): void {
           return api(originalRequest);
         } catch (refreshError) {
           processQueue(refreshError, null);
+          clearClientSessionHint();
           useAuthStore.getState().logout();
           window.location.href = '/login';
           return Promise.reject(refreshError);
