@@ -2,6 +2,10 @@ import { create } from 'zustand';
 
 import { authApi } from '../api/auth.api';
 import type { AuthUser } from '../types/auth-user.type';
+import {
+  clearClientSessionHint,
+  setClientSessionHint,
+} from '../utils/client-session-hint';
 import { hasSessionCookie } from '../utils/has-session-cookie';
 
 interface AuthStore {
@@ -34,11 +38,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
       // Set the token first so the request interceptor attaches it to /auth/me.
       set({ accessToken: data.access_token });
       const me = await authApi.getMe();
+      setClientSessionHint();
       set({ user: me, isInitialized: true });
     } catch {
+      clearClientSessionHint();
       set({ accessToken: null, user: null, isInitialized: true });
     }
   },
 
-  logout: () => set({ accessToken: null, user: null }),
+  logout: () => {
+    clearClientSessionHint();
+    set({ accessToken: null, user: null });
+  },
 }));
