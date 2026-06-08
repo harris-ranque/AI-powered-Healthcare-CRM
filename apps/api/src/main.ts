@@ -56,15 +56,25 @@ async function bootstrap() {
     .map((value) => value.trim())
     .filter(Boolean);
 
+  const parseOriginHostname = (origin: string): string | null => {
+    try {
+      return new URL(origin).hostname;
+    } catch {
+      return null;
+    }
+  };
+
   // Localhost (any port) is always allowed so local dev works without having to
   // keep it in the allowlist alongside the deployed origin.
   const isLocalhostOrigin = (origin: string): boolean => {
-    try {
-      const { hostname } = new URL(origin);
-      return hostname === 'localhost' || hostname === '127.0.0.1';
-    } catch {
-      return false;
-    }
+    const hostname = parseOriginHostname(origin);
+    return hostname === 'localhost' || hostname === '127.0.0.1';
+  };
+
+  // Vercel production + preview deployments (*.vercel.app).
+  const isVercelOrigin = (origin: string): boolean => {
+    const hostname = parseOriginHostname(origin);
+    return hostname !== null && hostname.endsWith('.vercel.app');
   };
 
   app.enableCors({
@@ -76,7 +86,8 @@ async function bootstrap() {
       if (
         !origin ||
         allowedOrigins.includes(origin) ||
-        isLocalhostOrigin(origin)
+        isLocalhostOrigin(origin) ||
+        isVercelOrigin(origin)
       ) {
         callback(null, true);
         return;
