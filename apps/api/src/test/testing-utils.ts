@@ -76,6 +76,16 @@ export const mockPrismaService = {
         count: jest.fn(),
         create: jest.fn(),
       },
+      assistantConversation: {
+        create: jest.fn(),
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
+      assistantMessage: {
+        create: jest.fn(),
+      },
       $transaction: jest.fn(),
     },
     findPaymentByStripePaymentIntentId: jest.fn(),

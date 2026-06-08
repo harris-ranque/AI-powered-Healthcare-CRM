@@ -3,12 +3,13 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, FileText, User, UserRound } from 'lucide-react';
+import { Calendar, FileText, MessageCircle, User, UserRound } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
 const items = [
   { label: 'Home', href: '/portal', icon: UserRound },
+  { label: 'AI Assistant', href: '/portal/assistant', icon: MessageCircle },
   { label: 'My profile', href: '/portal/profile', icon: UserRound },
   { label: 'My records', href: '/portal/records', icon: FileText },
   { label: 'My appointments', href: '/portal/appointments', icon: Calendar },

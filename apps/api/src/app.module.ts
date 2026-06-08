@@ -34,6 +34,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { SearchModule } from './modules/search/search.module';
+import { AssistantModule } from './modules/assistant/assistant.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { SearchModule } from './modules/search/search.module';
     DashboardModule,
     CommentsModule,
     SearchModule,
+    AssistantModule,
     HealthModule,
     StripeModule,
     ThrottlerModule.forRoot([

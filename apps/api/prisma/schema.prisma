@@ -38,6 +38,7 @@ model User {
   sentInvitations         Invitation[]         @relation("InvitationInviter")
   appointments            Appointment[]        @relation("AppointmentProvider")
   comments                Comment[]
+  assistantConversations  AssistantConversation[]
 }
 
 model Organization {
@@ -68,6 +69,7 @@ model Organization {
   appointments        Appointment[]
   comments            Comment[]
   apiKeys             ApiKey[]
+  assistantConversations AssistantConversation[]
 
   // =========================
   // SAAS Billing
@@ -223,6 +225,7 @@ model Patient {
   aiRequestLogs AiRequestLog[]
   appointments  Appointment[]
   comments      Comment[]
+  assistantConversations AssistantConversation[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -358,4 +361,36 @@ enum SubscriptionPlan {
   STARTER
   PROFESSIONAL
   ENTERPRISE
+}
+
+enum AssistantMessageRole {
+  USER
+  ASSISTANT
+}
+
+model AssistantConversation {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  patientId      String
+  patient        Patient  @relation(fields: [patientId], references: [id])
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  title          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  messages       AssistantMessage[]
+
+  @@index([patientId, updatedAt])
+}
+
+model AssistantMessage {
+  id             String   @id @default(uuid())
+  conversationId String
+  conversation   AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           AssistantMessageRole
+  content        String
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId, createdAt])
 }

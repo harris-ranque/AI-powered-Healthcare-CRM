@@ -31,6 +31,17 @@ export type SummarizeNoteActor = {
   noteId?: string;
 };
 
+export type ChatMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+};
+
+export type StreamChatResult = {
+  tokens: number;
+  model: string;
+  content: string;
+};
+
 export type MedicalNoteSummaryResult = {
   summary: string;
   tokens: number;
@@ -158,6 +169,70 @@ export class AiService {
     const visitSummary = this.ensureDisclaimer(content);
 
     return { visitSummary, tokens };
+  }
+
+  async *streamChat(
+    messages: ChatMessage[],
+    actor: SummarizeNoteActor,
+    promptForLog: string,
+  ): AsyncGenerator<string, StreamChatResult, undefined> {
+    if (!this.openai) {
+      throw new ServiceUnavailableException(
+        'AI assistant is not configured (OPENAI_API_KEY missing)',
+      );
+    }
+
+    const model =
+      this.config.get<string>('OPENAI_MODEL')?.trim() || DEFAULT_OPENAI_MODEL;
+
+    let stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
+    try {
+      stream = await this.openai.chat.completions.create({
+        model,
+        temperature: 0.3,
+        stream: true,
+        stream_options: { include_usage: true },
+        messages,
+      });
+    } catch {
+      throw new BadGatewayException('Failed to generate response from AI provider');
+    }
+
+    let content = '';
+    let tokens = 0;
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content;
+      if (delta) {
+        content += delta;
+        yield delta;
+      }
+      if (chunk.usage?.total_tokens) {
+        tokens = chunk.usage.total_tokens;
+      }
+    }
+
+    const trimmed = content.trim();
+    if (!trimmed) {
+      throw new BadGatewayException('AI provider returned an empty response');
+    }
+
+    const cost = this.estimateCost(model, tokens);
+
+    await this.prisma.client.aiRequestLog.create({
+      data: {
+        organizationId: actor.organizationId,
+        userId: actor.userId,
+        patientId: actor.patientId,
+        prompt: promptForLog,
+        response: trimmed,
+        tokens,
+        model,
+        cost,
+      },
+    });
+
+    return { tokens, model, content: trimmed };
   }
 
   async listForPatient(
