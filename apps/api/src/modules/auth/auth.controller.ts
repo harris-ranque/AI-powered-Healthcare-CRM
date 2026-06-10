@@ -26,6 +26,7 @@ import {
 } from './utils/google-oauth-state.util';
 import { LoginDto } from './dto/login.dto';
 import { RegisterClinicDto } from './dto/register-clinic.dto';
+import { RegisterProviderDto } from './dto/register-provider.dto';
 import { RegisterPatientDto } from './dto/register-patient.dto';
 import { RegisterSoloDto } from './dto/register-solo.dto';
 import { RegisterStaffDto } from './dto/register-staff.dto';
@@ -46,6 +47,13 @@ export class AuthController {
     @Body() registerDto: RegisterClinicDto,
   ): Promise<OtpPendingResponse> {
     return this.authService.registerLegacy(registerDto);
+  }
+
+  @Post('register/provider')
+  async registerProvider(
+    @Body() registerDto: RegisterProviderDto,
+  ): Promise<OtpPendingResponse> {
+    return this.authService.startRegisterProvider(registerDto);
   }
 
   @Post('register/clinic')

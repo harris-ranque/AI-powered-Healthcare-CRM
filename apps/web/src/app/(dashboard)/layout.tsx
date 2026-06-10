@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { DashboardLayout } from '@/components/layouts/dashboard-layout';
 import { useAuth } from '@/features/auth/hooks/use-auth';
+import { Role } from '@/features/auth/types/role.type';
 import { isPatientRole, isStaffRole } from '@/features/auth/utils/get-post-auth-path';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -22,6 +23,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (user) {
       if (isPatientRole(user.role)) {
         router.push('/portal');
+        return;
+      }
+      if (user.role === Role.CLINIC_OWNER && user.onboardingCompleted === false) {
+        router.push('/onboarding');
         return;
       }
       if (isStaffRole(user.role) && user.memberStatus === 'PENDING') {
@@ -44,7 +49,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (user && (isPatientRole(user.role) || user.memberStatus === 'PENDING')) {
+  if (
+    user &&
+    (isPatientRole(user.role) ||
+      user.memberStatus === 'PENDING' ||
+      (user.role === Role.CLINIC_OWNER && user.onboardingCompleted === false))
+  ) {
     return (
       <div className="flex min-h-screen items-center justify-center text-muted-foreground">
         Redirecting...

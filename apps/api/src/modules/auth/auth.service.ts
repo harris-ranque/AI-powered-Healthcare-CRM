@@ -16,9 +16,9 @@ import { PrismaService } from '../../database/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterClinicDto } from './dto/register-clinic.dto';
 import { RegisterPatientDto } from './dto/register-patient.dto';
+import { RegisterProviderDto } from './dto/register-provider.dto';
 import { RegisterSoloDto } from './dto/register-solo.dto';
 import { RegisterStaffDto } from './dto/register-staff.dto';
-import { suggestSlug } from '../../common/utils/suggest-slug';
 import { JwtPayload } from './types/jwt-payload.type';
 import { getLoginRateLimiter } from '../../common/security/login-rate-limit';
 import { EmailService } from '../queues/email/email.service';
@@ -37,7 +37,12 @@ type ResolvedRegistration = {
 
 type RegisterChallengePayload = {
   resolved: ResolvedRegistration;
-  dto: RegisterClinicDto | RegisterStaffDto | RegisterPatientDto | RegisterSoloDto;
+  dto:
+    | RegisterProviderDto
+    | RegisterClinicDto
+    | RegisterStaffDto
+    | RegisterPatientDto
+    | RegisterSoloDto;
 };
 
 export type AuthTokenResponse = {
@@ -58,6 +63,8 @@ export type AuthMeResponse = {
   role: Role;
   organizationId?: string;
   memberStatus?: MemberStatus;
+  onboardingCompleted?: boolean;
+  onboardingStep?: number;
 };
 
 import type {
@@ -116,14 +123,25 @@ export class AuthService {
     });
   }
 
+  async startRegisterProvider(
+    registerDto: RegisterProviderDto,
+  ): Promise<OtpPendingResponse> {
+    const payload = await this.prepareRegisterProvider(registerDto);
+    return this.otpService.createChallenge({
+      purpose: 'REGISTER_PROVIDER',
+      email: payload.resolved.email,
+      payload,
+    });
+  }
+
   async startRegisterClinic(
     registerDto: RegisterClinicDto,
   ): Promise<OtpPendingResponse> {
-    const payload = await this.prepareRegisterClinic(registerDto);
-    return this.otpService.createChallenge({
-      purpose: 'REGISTER_CLINIC',
-      email: payload.resolved.email,
-      payload,
+    return this.startRegisterProvider({
+      email: registerDto.email,
+      name: registerDto.name,
+      password: registerDto.password,
+      googleToken: registerDto.googleToken,
     });
   }
 
@@ -152,11 +170,11 @@ export class AuthService {
   async startRegisterSolo(
     registerDto: RegisterSoloDto,
   ): Promise<OtpPendingResponse> {
-    const payload = await this.prepareRegisterSolo(registerDto);
-    return this.otpService.createChallenge({
-      purpose: 'REGISTER_SOLO',
-      email: payload.resolved.email,
-      payload,
+    return this.startRegisterProvider({
+      email: registerDto.email,
+      name: registerDto.name,
+      password: registerDto.password,
+      googleToken: registerDto.googleToken,
     });
   }
 
@@ -195,9 +213,17 @@ export class AuthService {
     }
 
     switch (challenge.purpose) {
+      case 'REGISTER_PROVIDER':
+        return this.executeRegisterProvider(
+          payload.dto as RegisterProviderDto,
+          payload.resolved,
+        );
       case 'REGISTER_CLINIC':
-        return this.executeRegisterClinic(
-          payload.dto as RegisterClinicDto,
+        return this.executeRegisterProvider(
+          {
+            email: (payload.dto as RegisterClinicDto).email,
+            name: (payload.dto as RegisterClinicDto).name,
+          },
           payload.resolved,
         );
       case 'REGISTER_STAFF':
@@ -211,8 +237,11 @@ export class AuthService {
           payload.resolved,
         );
       case 'REGISTER_SOLO':
-        return this.executeRegisterClinic(
-          payload.dto as RegisterClinicDto,
+        return this.executeRegisterProvider(
+          {
+            email: (payload.dto as RegisterSoloDto).email,
+            name: (payload.dto as RegisterSoloDto).name,
+          },
           payload.resolved,
         );
       default:
@@ -227,54 +256,19 @@ export class AuthService {
   async registerLegacy(
     registerDto: RegisterClinicDto,
   ): Promise<OtpPendingResponse> {
-    return this.startRegisterClinic(registerDto);
-  }
-
-  // ================================
-  // Register solo practice (individual provider owns org)
-  // ================================
-  private async prepareRegisterSolo(
-    registerDto: RegisterSoloDto,
-  ): Promise<RegisterChallengePayload> {
-    const clinicName =
-      registerDto.practiceName?.trim() ||
-      `${registerDto.name.trim()} Practice`;
-    let clinicSlug = suggestSlug(clinicName);
-    if (!clinicSlug) {
-      clinicSlug = suggestSlug(registerDto.name) || 'solo-practice';
-    }
-
-    let suffix = 0;
-    while (true) {
-      const candidate = suffix === 0 ? clinicSlug : `${clinicSlug}-${suffix}`;
-      const existing = await this.prisma.client.organization.findUnique({
-        where: { slug: candidate },
-      });
-      if (!existing) {
-        clinicSlug = candidate;
-        break;
-      }
-      suffix += 1;
-    }
-
-    const clinicDto: RegisterClinicDto = {
+    return this.startRegisterProvider({
       email: registerDto.email,
       name: registerDto.name,
       password: registerDto.password,
       googleToken: registerDto.googleToken,
-      clinicName,
-      clinicSlug,
-    };
-
-    const prepared = await this.prepareRegisterClinic(clinicDto);
-    return { dto: clinicDto, resolved: prepared.resolved };
+    });
   }
 
   // ================================
-  // Register clinic owner
+  // Register provider (account only — org created in onboarding)
   // ================================
-  private async prepareRegisterClinic(
-    registerDto: RegisterClinicDto,
+  private async prepareRegisterProvider(
+    registerDto: RegisterProviderDto,
   ): Promise<RegisterChallengePayload> {
     const existingUser = await this.prisma.client.user.findUnique({
       where: { email: registerDto.email },
@@ -290,61 +284,25 @@ export class AuthService {
       registerDto.googleToken,
     );
 
-    const existingSlug = await this.prisma.client.organization.findUnique({
-      where: { slug: registerDto.clinicSlug },
-    });
-    if (existingSlug) {
-      throw new ConflictException('Clinic slug already exists');
-    }
-
     return { dto: registerDto, resolved };
   }
 
-  private async executeRegisterClinic(
-    registerDto: RegisterClinicDto,
+  private async executeRegisterProvider(
+    registerDto: RegisterProviderDto,
     resolved: ResolvedRegistration,
   ): Promise<AuthTokenResponse> {
-    const user = await this.prisma.client.$transaction(async (tx) => {
-      const createdUser = await tx.user.create({
-        data: {
-          email: resolved.email,
-          password: resolved.passwordHash,
-          googleId: resolved.googleId,
-          name: registerDto.name,
-          role: Role.CLINIC_OWNER,
-        },
-      });
-
-      const organization = await tx.organization.create({
-        data: {
-          name: registerDto.clinicName,
-          slug: registerDto.clinicSlug,
-          ownerId: createdUser.id,
-          members: {
-            connect: { id: createdUser.id },
-          },
-        },
-      });
-
-      await tx.organizationMember.create({
-        data: {
-          organizationId: organization.id,
-          userId: createdUser.id,
-          role: Role.CLINIC_OWNER,
-          status: MemberStatus.ACTIVE,
-        },
-      });
-
-      await tx.user.update({
-        where: { id: createdUser.id },
-        data: { organizationId: organization.id },
-      });
-
-      return createdUser;
+    const user = await this.prisma.client.user.create({
+      data: {
+        email: resolved.email,
+        password: resolved.passwordHash,
+        googleId: resolved.googleId,
+        name: registerDto.name,
+        role: Role.CLINIC_OWNER,
+      },
     });
+
     await this.emailService.sendWelcomeEmail(user.email, user.name ?? '');
     const tokens = await this.generateToken(user.id, user.email, user.role);
-
     await this.updateRefreshToken(user.id, tokens.refresh_token);
 
     return tokens;
@@ -699,13 +657,27 @@ export class AuthService {
       select: { organizationId: true, status: true },
     });
 
+    const ownedOrganization = await this.prisma.client.organization.findUnique({
+      where: { ownerId: userId },
+      select: {
+        id: true,
+        onboardingCompleted: true,
+        onboardingStep: true,
+      },
+    });
+
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
-      organizationId: membership?.organizationId,
+      organizationId: ownedOrganization?.id ?? membership?.organizationId,
       memberStatus: membership?.status,
+      onboardingCompleted:
+        user.role === Role.CLINIC_OWNER
+          ? (ownedOrganization?.onboardingCompleted ?? false)
+          : true,
+      onboardingStep: ownedOrganization?.onboardingStep,
     };
   }
 

@@ -4,6 +4,13 @@ import type { AuthUser } from '../types/auth-user.type';
 import type { OtpPendingResponse } from '../types/otp.type';
 import type { Role } from '../types/role.type';
 
+export type RegisterProviderPayload = {
+  name: string;
+  email: string;
+  password?: string;
+  googleToken?: string;
+};
+
 export type RegisterClinicPayload = {
   name: string;
   email: string;
@@ -53,6 +60,11 @@ type AccessTokenResponse = { access_token: string };
 export const authApi = {
   login: async (email: string, password: string): Promise<OtpPendingResponse> => {
     const response = await api.post<OtpPendingResponse>('/auth/login', { email, password });
+    return response.data;
+  },
+
+  registerProvider: async (payload: RegisterProviderPayload): Promise<OtpPendingResponse> => {
+    const response = await api.post<OtpPendingResponse>('/auth/register/provider', payload);
     return response.data;
   },
 

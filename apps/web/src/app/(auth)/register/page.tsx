@@ -26,7 +26,8 @@ export default function RegisterPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold">Create your account</h1>
           <p className="text-muted-foreground mt-2 text-sm">
-            Register as a client (patient) or healthcare provider.
+            Providers: sign up, create your clinic, invite your team, and choose a plan — all
+            self-serve.
           </p>
         </div>
 

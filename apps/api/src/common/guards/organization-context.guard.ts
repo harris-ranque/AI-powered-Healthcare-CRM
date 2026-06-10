@@ -73,16 +73,26 @@ export class OrganizationContextGuard implements CanActivate {
     // OrganizationMember.role has drifted from CLINIC_OWNER (e.g. legacy
     // accounts or solo providers who own their org). Only an extra lookup is
     // needed when the membership role is not already an owner role.
+    const organizationRecord = await this.prisma.client.organization.findUnique(
+      {
+        where: { id: membership.organizationId },
+        select: { ownerId: true, onboardingCompleted: true },
+      },
+    );
+
+    if (
+      organizationRecord &&
+      !organizationRecord.onboardingCompleted &&
+      organizationRecord.ownerId === userId
+    ) {
+      throw new ForbiddenException('ONBOARDING_INCOMPLETE');
+    }
+
     let effectiveRole = membership.role;
     if (
       effectiveRole !== Role.CLINIC_OWNER &&
       effectiveRole !== Role.SUPER_ADMIN
     ) {
-      const organizationRecord =
-        await this.prisma.client.organization.findUnique({
-          where: { id: membership.organizationId },
-          select: { ownerId: true },
-        });
       if (organizationRecord?.ownerId === userId) {
         effectiveRole = Role.CLINIC_OWNER;
       }

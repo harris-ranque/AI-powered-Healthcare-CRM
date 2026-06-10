@@ -8,6 +8,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
 import Stripe from 'stripe';
+import { SubscriptionPlan as PrismaSubscriptionPlan } from '@prisma/client';
+
+import { PLAN_CONFIG } from '../billing/plans';
 import { PrismaService } from '../../database/prisma.service';
 import { SubscriptionPlan } from './dto/create-subscription.dto';
 import { STRIPE_CLIENT } from './stripe.client';
@@ -254,18 +257,43 @@ export class StripeService {
       return;
     }
 
+    const prismaPlan = this.mapCheckoutPlanToPrisma(plan);
+    const planConfig = prismaPlan ? PLAN_CONFIG[prismaPlan] : undefined;
+
     await this.prisma.client.organization.update({
       where: { id: organizationId },
       data: {
         stripeSubscriptionId: subscriptionId,
         stripeSubscriptionStatus: 'ACTIVE',
         stripeSubscriptionPlan: plan,
+        ...(prismaPlan ? { subscriptionPlan: prismaPlan } : {}),
+        ...(planConfig
+          ? {
+              memberLimit: planConfig.memberLimit,
+              storageLimitMb: planConfig.storageLimitMb,
+              apiLimitPerMonth: planConfig.apiLimitPerMonth,
+            }
+          : {}),
+        onboardingStep: 5,
       },
     });
 
     this.logger.log(
       `Subscription activated for organization ${organizationId}`,
     );
+  }
+
+  private mapCheckoutPlanToPrisma(
+    plan?: string,
+  ): PrismaSubscriptionPlan | undefined {
+    switch (plan) {
+      case SubscriptionPlan.STARTER:
+        return PrismaSubscriptionPlan.STARTER;
+      case SubscriptionPlan.PRO:
+        return PrismaSubscriptionPlan.PROFESSIONAL;
+      default:
+        return undefined;
+    }
   }
 
   // ================================
@@ -485,6 +513,62 @@ export class StripeService {
       metadata: {
         organizationId: organization.id,
         plan,
+      },
+    });
+
+    if (!session.url) {
+      throw new BadRequestException('Checkout session missing url');
+    }
+
+    return { url: session.url };
+  }
+
+  async createOnboardingSubscriptionCheckout(
+    userId: string,
+    plan: 'starter' | 'pro',
+  ): Promise<{ url: string }> {
+    const stripePlan =
+      plan === 'starter' ? SubscriptionPlan.STARTER : SubscriptionPlan.PRO;
+    const organization = await this.prisma.client.organization.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+
+    if (!organization) {
+      throw new BadRequestException('Organization not found');
+    }
+
+    const customerId = await this.createStripeCustomer(organization.id);
+
+    let priceId: string | undefined;
+    switch (stripePlan) {
+      case SubscriptionPlan.STARTER:
+        priceId = this.config.get<string>('STRIPE_STARTER_PRICE_ID');
+        break;
+      case SubscriptionPlan.PRO:
+        priceId = this.config.get<string>('STRIPE_PRO_PRICE_ID');
+        break;
+      default:
+        throw new BadRequestException('Invalid plan');
+    }
+
+    if (!priceId) {
+      throw new BadRequestException(`Price ID not configured for plan ${plan}`);
+    }
+
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+
+    const session = await this.stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${frontendUrl}/onboarding?step=4&checkout=success`,
+      cancel_url: `${frontendUrl}/onboarding?step=4&checkout=cancel`,
+      metadata: {
+        organizationId: organization.id,
+        plan: stripePlan,
       },
     });
 

@@ -6,12 +6,12 @@ import { Suspense, useMemo, useState } from 'react';
 import { AuthDivider } from '@/features/auth/components/auth-divider';
 import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button';
 import { OtpVerificationForm } from '@/features/auth/components/otp-verification-form';
-import { RegisterClinicForm } from '@/features/auth/components/register-clinic-form';
+import { RegisterProviderForm } from '@/features/auth/components/register-provider-form';
 import { useCompleteAuth } from '@/features/auth/hooks/use-complete-auth';
 import { useOtpStep } from '@/features/auth/hooks/use-otp-step';
 import { useGoogleOnboarding } from '@/features/auth/hooks/use-google-onboarding';
 import { authApi } from '@/features/auth/api/auth.api';
-import type { RegisterClinicFormValues } from '@/features/auth/schemas/register.schema';
+import type { RegisterProviderFormValues } from '@/features/auth/schemas/register.schema';
 import { useNotificationStore } from '@/features/notifications/store/notification.store';
 import { getErrorMessage } from '@/features/notifications/utils/get-error-message';
 
@@ -35,19 +35,19 @@ function RegisterClinicContent() {
     };
   }, [prefill]);
 
-  const handleSubmit = async (values: RegisterClinicFormValues) => {
+  const handleSubmit = async (values: RegisterProviderFormValues) => {
     try {
       setLoading(true);
       setApiError(null);
       const { password, googleToken: token, ...rest } = values;
-      const data = await authApi.registerClinic({
+      const data = await authApi.registerProvider({
         ...rest,
         ...(token ? { googleToken: token } : { password }),
       });
       notify({ type: 'success', message: 'Check your email for a verification code' });
       startOtp(data);
     } catch (error) {
-      const message = getErrorMessage(error, 'Failed to register clinic');
+      const message = getErrorMessage(error, 'Failed to register');
       setApiError(message);
       notify({ type: 'error', message });
     } finally {
@@ -69,7 +69,7 @@ function RegisterClinicContent() {
         <div>
           <h1 className="text-2xl font-bold">Provider registration</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Register your organization (clinic). You will be the clinic owner.
+            Create your account, then set up your clinic in a quick guided wizard.
           </p>
         </div>
 
@@ -87,18 +87,19 @@ function RegisterClinicContent() {
             pending={pending}
             onVerified={completeAuth}
             onBack={clearOtp}
-            successMessage="Clinic account created"
+            successMessage="Account verified — let&apos;s set up your clinic"
           />
         ) : (
-        <RegisterClinicForm
-          loading={loading}
-          apiError={apiError}
-          googleToken={googleToken}
-          hidePassword={isGoogleOnboarding}
-          emailLocked={isGoogleOnboarding}
-          initialValues={initialValues}
-          onSubmit={handleSubmit}
-        />
+          <RegisterProviderForm
+            loading={loading}
+            apiError={apiError}
+            googleToken={googleToken}
+            hidePassword={isGoogleOnboarding}
+            emailLocked={isGoogleOnboarding}
+            initialValues={initialValues}
+            submitLabel="Continue"
+            onSubmit={handleSubmit}
+          />
         )}
 
         <p className="text-center text-sm text-zinc-600">

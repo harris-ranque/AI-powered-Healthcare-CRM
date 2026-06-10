@@ -21,6 +21,13 @@ function withOptionalGooglePassword<T extends z.ZodRawShape>(shape: T) {
   });
 }
 
+export const registerProviderSchema = withOptionalGooglePassword({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Enter a valid email'),
+  password: passwordSchema.optional(),
+  googleToken: z.string().optional(),
+});
+
 export const registerClinicSchema = withOptionalGooglePassword({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Enter a valid email'),
@@ -85,6 +92,7 @@ export const registerSoloSchema = withOptionalGooglePassword({
   practiceName: z.string().min(3, 'Practice name must be at least 3 characters').optional(),
 });
 
+export type RegisterProviderFormValues = z.infer<typeof registerProviderSchema>;
 export type RegisterClinicFormValues = z.infer<typeof registerClinicSchema>;
 export type RegisterSoloFormValues = z.infer<typeof registerSoloSchema>;
 export type RegisterStaffFormValues = z.infer<typeof registerStaffSchema>;

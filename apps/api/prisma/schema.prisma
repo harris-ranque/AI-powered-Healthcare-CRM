@@ -90,6 +90,10 @@ model Organization {
   storageLimitMb Int @default(1024)
 
   apiLimitPerMonth Int @default(10000)
+
+  onboardingCompleted Boolean    @default(false)
+  onboardingStep      Int        @default(1)
+  clinicSize          ClinicSize?
 }
 
 model Payment {
@@ -354,6 +358,13 @@ enum InvitationStatus {
   ACCEPTED
   REVOKED
   EXPIRED
+}
+
+enum ClinicSize {
+  SIZE_1_5
+  SIZE_6_20
+  SIZE_21_100
+  SIZE_100_PLUS
 }
 
 enum SubscriptionPlan {

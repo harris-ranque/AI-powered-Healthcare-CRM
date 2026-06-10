@@ -6,12 +6,12 @@ import { Suspense, useMemo, useState } from 'react';
 import { AuthDivider } from '@/features/auth/components/auth-divider';
 import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button';
 import { OtpVerificationForm } from '@/features/auth/components/otp-verification-form';
-import { RegisterSoloForm } from '@/features/auth/components/register-solo-form';
+import { RegisterProviderForm } from '@/features/auth/components/register-provider-form';
 import { useCompleteAuth } from '@/features/auth/hooks/use-complete-auth';
 import { useOtpStep } from '@/features/auth/hooks/use-otp-step';
 import { useGoogleOnboarding } from '@/features/auth/hooks/use-google-onboarding';
 import { authApi } from '@/features/auth/api/auth.api';
-import type { RegisterSoloFormValues } from '@/features/auth/schemas/register.schema';
+import type { RegisterProviderFormValues } from '@/features/auth/schemas/register.schema';
 import { useNotificationStore } from '@/features/notifications/store/notification.store';
 import { getErrorMessage } from '@/features/notifications/utils/get-error-message';
 
@@ -35,14 +35,13 @@ function RegisterSoloContent() {
     };
   }, [prefill]);
 
-  const handleSubmit = async (values: RegisterSoloFormValues) => {
+  const handleSubmit = async (values: RegisterProviderFormValues) => {
     try {
       setLoading(true);
       setApiError(null);
-      const { password, googleToken: token, practiceName, ...rest } = values;
-      const data = await authApi.registerSolo({
+      const { password, googleToken: token, ...rest } = values;
+      const data = await authApi.registerProvider({
         ...rest,
-        ...(practiceName?.trim() ? { practiceName: practiceName.trim() } : {}),
         ...(token ? { googleToken: token } : { password }),
       });
       notify({ type: 'success', message: 'Check your email for a verification code' });
@@ -70,7 +69,7 @@ function RegisterSoloContent() {
         <div>
           <h1 className="text-primary text-2xl font-bold">Solo practice registration</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Create your own practice workspace. You can invite staff and clients after signup.
+            Create your account, then name your practice and invite your team.
           </p>
         </div>
 
@@ -88,16 +87,17 @@ function RegisterSoloContent() {
             pending={pending}
             onVerified={completeAuth}
             onBack={clearOtp}
-            successMessage="Your solo practice is ready"
+            successMessage="Account verified — let&apos;s set up your practice"
           />
         ) : (
-          <RegisterSoloForm
+          <RegisterProviderForm
             loading={loading}
             apiError={apiError}
             googleToken={googleToken}
             hidePassword={isGoogleOnboarding}
             emailLocked={isGoogleOnboarding}
             initialValues={initialValues}
+            submitLabel="Continue"
             onSubmit={handleSubmit}
           />
         )}

@@ -35,6 +35,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { SearchModule } from './modules/search/search.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { AssistantModule } from './modules/assistant/assistant.module';
     CommentsModule,
     SearchModule,
     AssistantModule,
+    OnboardingModule,
     HealthModule,
     StripeModule,
     ThrottlerModule.forRoot([

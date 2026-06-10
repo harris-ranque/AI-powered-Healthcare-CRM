@@ -21,7 +21,7 @@ export function useCompleteAuth() {
         const me = await authApi.getMe();
         setUser(me);
         setClientSessionHint();
-        router.push(getPostAuthPath(me.role, me.memberStatus));
+        router.push(getPostAuthPath(me.role, me.memberStatus, me.onboardingCompleted));
       } catch {
         logout();
         throw new Error('Could not load your account. Please try signing in again.');

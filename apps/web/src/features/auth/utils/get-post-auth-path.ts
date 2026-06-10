@@ -9,9 +9,17 @@ const STAFF_ROLES: Role[] = [
   Role.SUPER_ADMIN,
 ];
 
-export function getPostAuthPath(role: Role, memberStatus?: MemberStatus): string {
+export function getPostAuthPath(
+  role: Role,
+  memberStatus?: MemberStatus,
+  onboardingCompleted?: boolean,
+): string {
   if (role === Role.PATIENT) {
     return '/portal';
+  }
+
+  if (role === Role.CLINIC_OWNER && onboardingCompleted === false) {
+    return '/onboarding';
   }
 
   if (STAFF_ROLES.includes(role)) {

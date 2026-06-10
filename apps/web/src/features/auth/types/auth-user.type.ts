@@ -8,4 +8,6 @@ export type AuthUser = {
   role: Role;
   organizationId?: string;
   memberStatus?: MemberStatus;
+  onboardingCompleted?: boolean;
+  onboardingStep?: number;
 };

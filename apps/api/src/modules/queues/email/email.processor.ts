@@ -26,6 +26,8 @@ function purposeLabel(purpose: string): string {
   switch (purpose) {
     case 'LOGIN':
       return 'sign in';
+    case 'REGISTER_PROVIDER':
+      return 'provider registration';
     case 'REGISTER_CLINIC':
       return 'clinic registration';
     case 'REGISTER_SOLO':

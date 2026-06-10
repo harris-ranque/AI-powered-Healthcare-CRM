@@ -20,5 +20,6 @@ import { NotificationsService } from '../notifications/notifications.service';
     NotificationsService,
   ],
   controllers: [StripeController],
+  exports: [StripeService],
 })
 export class StripeModule {}
