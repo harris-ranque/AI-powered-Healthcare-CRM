@@ -14,7 +14,11 @@ import {
 import { useNotificationStore } from '@/features/notifications/store/notification.store';
 import { getErrorMessage } from '@/features/notifications/utils/get-error-message';
 
-import { useInvitationsList, useRevokeInvitation } from '../hooks/use-invitations';
+import {
+  useInvitationsList,
+  useResendInvitation,
+  useRevokeInvitation,
+} from '../hooks/use-invitations';
 
 type Props = {
   action?: ReactNode;
@@ -28,6 +32,19 @@ export function InvitationsList({ action, inviteeType }: Props) {
     inviteeType,
   );
   const revoke = useRevokeInvitation();
+  const resend = useResendInvitation();
+
+  const handleResend = async (id: string) => {
+    try {
+      await resend.mutateAsync(id);
+      notify({ type: 'success', message: 'Invitation resent' });
+    } catch (err) {
+      notify({
+        type: 'error',
+        message: getErrorMessage(err, 'Failed to resend invitation'),
+      });
+    }
+  };
 
   const handleRevoke = async (id: string) => {
     try {
@@ -80,7 +97,15 @@ export function InvitationsList({ action, inviteeType }: Props) {
                   <TableCell>
                     {new Date(invitation.expiresAt).toLocaleDateString()}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="space-x-2 text-right">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={resend.isPending}
+                      onClick={() => void handleResend(invitation.id)}
+                    >
+                      Resend
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"

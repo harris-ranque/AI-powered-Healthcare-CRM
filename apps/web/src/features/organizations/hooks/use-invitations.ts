@@ -41,3 +41,13 @@ export function useRevokeInvitation() {
     },
   });
 }
+
+export function useResendInvitation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => invitationsApi.resend(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: invitationsQueryKeys.all });
+    },
+  });
+}

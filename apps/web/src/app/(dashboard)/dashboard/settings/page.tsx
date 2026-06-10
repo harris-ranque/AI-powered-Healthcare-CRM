@@ -5,7 +5,7 @@ export default function SettingsPage() {
     <div className="space-y-4">
       <ul className="list-inside list-disc text-sm">
         <li>
-          <Link href="/dashboard/settings/members" className="underline">
+          <Link href="/dashboard/settings/team" className="underline">
             Team members
           </Link>
         </li>

@@ -160,6 +160,7 @@ export function MembersTable({
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead>Joined</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -167,7 +168,7 @@ export function MembersTable({
               <TableBody>
                 {filteredMembers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-muted-foreground text-center">
+                    <TableCell colSpan={6} className="text-muted-foreground text-center">
                       {search.trim() ? 'No members match your search' : 'No members found'}
                     </TableCell>
                   </TableRow>
@@ -191,6 +192,9 @@ export function MembersTable({
                             <SelectItem value={Role.CLINIC_OWNER}>Owner</SelectItem>
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(member.createdAt).toLocaleDateString()}
                       </TableCell>
                       <TableCell>{member.status}</TableCell>
                       <TableCell className="space-x-2 text-right">

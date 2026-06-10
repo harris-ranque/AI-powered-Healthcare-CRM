@@ -33,6 +33,7 @@ describe('InvitationsService', () => {
 
   const orgContext = {
     organizationId: 'org-1',
+    role: Role.CLINIC_OWNER,
     permissions: [Permission.CLIENT_INVITE],
   };
 
@@ -102,6 +103,7 @@ describe('InvitationsService', () => {
   it('creates staff invite when STAFF_INVITE is granted', async () => {
     const staffOrgContext = {
       organizationId: 'org-1',
+      role: Role.CLINIC_OWNER,
       permissions: [Permission.STAFF_INVITE],
     };
     prisma.client.user.findUnique.mockResolvedValue(null);

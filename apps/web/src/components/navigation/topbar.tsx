@@ -34,7 +34,7 @@ const PAGE_META: Record<string, PageMeta> = {
     title: 'Settings',
     description: 'Manage your organization preferences.',
   },
-  '/dashboard/settings/members': {
+  '/dashboard/settings/team': {
     title: 'Team members',
     description: 'Invite and manage your team and clients.',
   },

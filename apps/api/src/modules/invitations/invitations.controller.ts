@@ -81,11 +81,7 @@ export class InvitationsController {
     @CurrentOrganization() organization: OrganizationContext,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.invitationsService.create(
-      dto,
-      organization,
-      req.user.sub,
-    );
+    return this.invitationsService.create(dto, organization, req.user.sub);
   }
 
   @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionsGuard)
@@ -96,5 +92,16 @@ export class InvitationsController {
     @CurrentOrganization() organization: OrganizationContext,
   ) {
     return this.invitationsService.revoke(id, organization.organizationId);
+  }
+
+  @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionsGuard)
+  @RequireAnyPermissions(Permission.CLIENT_INVITE, Permission.STAFF_INVITE)
+  @Patch('invitations/:id/resend')
+  resendInvitation(
+    @Param('id') id: string,
+    @CurrentOrganization() organization: OrganizationContext,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.invitationsService.resend(id, organization, req.user.sub);
   }
 }

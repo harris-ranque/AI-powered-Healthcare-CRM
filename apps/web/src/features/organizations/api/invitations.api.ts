@@ -47,4 +47,9 @@ export const invitationsApi = {
   revoke: async (id: string): Promise<void> => {
     await api.patch(`/invitations/${id}/revoke`);
   },
+
+  resend: async (id: string): Promise<InvitationListItem> => {
+    const response = await api.patch<InvitationListItem>(`/invitations/${id}/resend`);
+    return response.data;
+  },
 };

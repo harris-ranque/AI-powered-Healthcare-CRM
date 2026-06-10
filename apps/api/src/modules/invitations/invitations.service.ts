@@ -4,11 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  InvitationStatus,
-  Role,
-  type Prisma,
-} from '@prisma/client';
+import { InvitationStatus, Role, type Prisma } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 
 import { Permission } from '../../common/permissions';
@@ -67,7 +63,9 @@ export class InvitationsService {
           },
         });
       if (existingMember) {
-        throw new BadRequestException('User is already a member of this clinic');
+        throw new BadRequestException(
+          'User is already a member of this clinic',
+        );
       }
     }
 
@@ -80,7 +78,9 @@ export class InvitationsService {
       },
     });
     if (pendingInvite) {
-      throw new BadRequestException('A pending invitation already exists for this email');
+      throw new BadRequestException(
+        'A pending invitation already exists for this email',
+      );
     }
 
     const org = await this.prisma.client.organization.findUnique({
@@ -183,6 +183,69 @@ export class InvitationsService {
       where: { id: invitationId },
       data: { status: InvitationStatus.REVOKED },
     });
+  }
+
+  async resend(
+    invitationId: string,
+    organization: OrganizationContext,
+    invitedByUserId: string,
+  ): Promise<InvitationListItem> {
+    const invitation = await this.prisma.client.invitation.findFirst({
+      where: { id: invitationId, organizationId: organization.organizationId },
+      include: { invitedBy: { select: { name: true } } },
+    });
+    if (!invitation) {
+      throw new NotFoundException('Invitation not found');
+    }
+    if (invitation.status !== InvitationStatus.PENDING) {
+      throw new BadRequestException('Only pending invitations can be resent');
+    }
+
+    this.assertCanInvite(invitation.role, organization.permissions);
+
+    const org = await this.prisma.client.organization.findUnique({
+      where: { id: organization.organizationId },
+      select: { name: true, slug: true },
+    });
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const updated = await this.prisma.client.invitation.update({
+      where: { id: invitationId },
+      data: { token, expiresAt },
+      include: { invitedBy: { select: { name: true } } },
+    });
+
+    const registerPath =
+      invitation.role === Role.PATIENT ? '/register/client' : '/register/staff';
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+    const inviteUrl = `${frontendUrl}${registerPath}?invite=${encodeURIComponent(token)}`;
+
+    await this.emailService.sendInvitationEmail({
+      email: invitation.email,
+      inviteUrl,
+      organizationName: org.name,
+      role: invitation.role,
+    });
+
+    await this.auditService.log({
+      userId: invitedByUserId,
+      organizationId: organization.organizationId,
+      action: 'USER_INVITED',
+      resource: 'INVITATION',
+      resourceId: invitation.id,
+      metadata: {
+        email: invitation.email,
+        role: invitation.role,
+        resent: true,
+      },
+    });
+
+    return this.toListItem(updated);
   }
 
   async getByToken(token: string): Promise<InvitationLookupResult> {
