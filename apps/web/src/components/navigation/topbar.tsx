@@ -28,7 +28,11 @@ const PAGE_META: Record<string, PageMeta> = {
   },
   '/dashboard/billing': {
     title: 'Billing',
-    description: 'Billing management coming soon.',
+    description: 'Manage your subscription and usage.',
+  },
+  '/dashboard/settings/billing': {
+    title: 'Billing',
+    description: 'Manage your subscription, usage, and invoices.',
   },
   '/dashboard/settings': {
     title: 'Settings',

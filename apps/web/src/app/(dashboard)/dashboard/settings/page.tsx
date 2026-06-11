@@ -9,6 +9,11 @@ export default function SettingsPage() {
             Team members
           </Link>
         </li>
+        <li>
+          <Link href="/dashboard/settings/billing" className="underline">
+            Billing
+          </Link>
+        </li>
       </ul>
     </div>
   );

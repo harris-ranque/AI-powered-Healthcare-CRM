@@ -79,7 +79,7 @@ const items: NavItem[] = [
   },
   {
     label: 'Billing',
-    href: '/dashboard/billing',
+    href: '/dashboard/settings/billing',
     icon: CreditCard,
     visible: (role) => hasPermission(role, Permission.BILLING_MANAGE),
   },

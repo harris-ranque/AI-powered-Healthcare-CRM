@@ -77,4 +77,21 @@ export class StripeController {
       dto.plan,
     );
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('billing-portal')
+  createBillingPortalSession(
+    @Req() req: AuthenticatedRequest,
+  ): Promise<{ url: string }> {
+    return this.stripeService.createBillingPortalSession(req.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('subscription/cancel')
+  cancelSubscription(@Req() req: AuthenticatedRequest): Promise<{
+    canceledAtPeriodEnd: true;
+    currentPeriodEnd: string | null;
+  }> {
+    return this.stripeService.cancelSubscription(req.user.sub);
+  }
 }

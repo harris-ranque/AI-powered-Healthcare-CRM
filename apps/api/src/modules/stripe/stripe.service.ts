@@ -501,8 +501,8 @@ export class StripeService {
           quantity: 1,
         },
       ],
-      success_url: `${frontendUrl}/vendor/billing/success`,
-      cancel_url: `${frontendUrl}/vendor/billing`,
+      success_url: `${frontendUrl}/dashboard/settings/billing?checkout=success`,
+      cancel_url: `${frontendUrl}/dashboard/settings/billing?checkout=cancel`,
       metadata: {
         organizationId: organization.id,
         plan,
@@ -570,5 +570,67 @@ export class StripeService {
     }
 
     return { url: session.url };
+  }
+
+  async createBillingPortalSession(userId: string): Promise<{ url: string }> {
+    const organization = await this.prisma.client.organization.findUnique({
+      where: { ownerId: userId },
+      select: { id: true, stripeCustomerId: true },
+    });
+
+    if (!organization) {
+      throw new BadRequestException('Organization not found');
+    }
+
+    const customerId =
+      organization.stripeCustomerId ??
+      (await this.createStripeCustomer(organization.id));
+
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+
+    const session = await this.stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${frontendUrl}/dashboard/settings/billing`,
+    });
+
+    if (!session.url) {
+      throw new BadRequestException('Billing portal session missing url');
+    }
+
+    return { url: session.url };
+  }
+
+  async cancelSubscription(userId: string): Promise<{
+    canceledAtPeriodEnd: true;
+    currentPeriodEnd: string | null;
+  }> {
+    const organization = await this.prisma.client.organization.findUnique({
+      where: { ownerId: userId },
+      select: {
+        stripeSubscriptionId: true,
+        subscriptionCurrentPeriodEnd: true,
+      },
+    });
+
+    if (!organization) {
+      throw new BadRequestException('Organization not found');
+    }
+
+    if (!organization.stripeSubscriptionId) {
+      throw new BadRequestException('No active subscription to cancel');
+    }
+
+    const subscription = await this.stripe.subscriptions.update(
+      organization.stripeSubscriptionId,
+      { cancel_at_period_end: true },
+    );
+
+    const firstItem = subscription.items.data[0];
+    const currentPeriodEnd = firstItem
+      ? new Date(firstItem.current_period_end * 1000).toISOString()
+      : (organization.subscriptionCurrentPeriodEnd?.toISOString() ?? null);
+
+    return { canceledAtPeriodEnd: true, currentPeriodEnd };
   }
 }

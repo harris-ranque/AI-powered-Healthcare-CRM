@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation';
+
 export default function BillingPage() {
-  return null;
+  redirect('/dashboard/settings/billing');
 }
