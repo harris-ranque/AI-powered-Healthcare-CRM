@@ -16,6 +16,8 @@ import { randomUUID } from 'crypto';
 
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { ProductEventName } from '../product-analytics/product-event.constants';
+import { ProductAnalyticsService } from '../product-analytics/product-analytics.service';
 import { UsageMetric } from '../usage-tracking/usage-metric.constants';
 import { UsageTrackingService } from '../usage-tracking/usage-tracking.service';
 import { RealtimeService } from '../realtime/realtime.service';
@@ -51,6 +53,7 @@ export class StorageService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly usageTrackingService: UsageTrackingService,
+    private readonly productAnalyticsService: ProductAnalyticsService,
     private readonly realtimeService: RealtimeService,
   ) {}
 
@@ -171,6 +174,15 @@ export class StorageService {
         actor.organizationId,
         UsageMetric.STORAGE_BYTES,
         contentLength,
+      );
+
+      void this.productAnalyticsService.trackEvent(
+        ProductEventName.FILE_UPLOADED,
+        {
+          organizationId: actor.organizationId,
+          userId: actor.userId,
+          metadata: { fileId: file.id, bytes: contentLength },
+        },
       );
 
       return file;

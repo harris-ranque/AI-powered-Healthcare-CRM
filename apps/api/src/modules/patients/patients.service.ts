@@ -7,6 +7,8 @@ import { AppointmentStatus, Prisma, type Patient } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
 import { BillingService } from '../billing/billing.service';
+import { ProductEventName } from '../product-analytics/product-event.constants';
+import { ProductAnalyticsService } from '../product-analytics/product-analytics.service';
 import { UsageMetric } from '../usage-tracking/usage-metric.constants';
 import { UsageTrackingService } from '../usage-tracking/usage-tracking.service';
 import { AiService } from '../ai/ai.service';
@@ -42,6 +44,7 @@ export class PatientsService {
     private readonly prisma: PrismaService,
     private readonly billingService: BillingService,
     private readonly usageTrackingService: UsageTrackingService,
+    private readonly productAnalyticsService: ProductAnalyticsService,
     private readonly auditService: AuditService,
     private readonly clinicalNotesService: ClinicalNotesService,
     private readonly storageService: StorageService,
@@ -78,6 +81,15 @@ export class PatientsService {
       void this.usageTrackingService.increment(
         actor.organizationId,
         UsageMetric.PATIENTS,
+      );
+
+      void this.productAnalyticsService.trackEvent(
+        ProductEventName.PATIENT_CREATED,
+        {
+          organizationId: actor.organizationId,
+          userId: actor.userId,
+          metadata: { patientId: patient.id },
+        },
       );
 
       return patient;

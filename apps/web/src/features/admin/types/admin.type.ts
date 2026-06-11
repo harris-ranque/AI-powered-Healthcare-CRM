@@ -88,3 +88,34 @@ export type AdminHealth = {
   queues: AdminQueueHealth[];
   failedJobs: AdminFailedJob[];
 };
+
+export type AdminActiveWindowCounts = {
+  daily: number;
+  weekly: number;
+  monthly: number;
+};
+
+export type AdminDailyAiUsagePoint = {
+  date: string;
+  requests: number;
+};
+
+export type AdminEventTotal = {
+  event: string;
+  count: number;
+};
+
+export type AdminWeeklyRetentionRow = {
+  cohortWeek: string;
+  size: number;
+  retention: number[];
+};
+
+export type AdminAnalytics = {
+  activeOrganizations: AdminActiveWindowCounts;
+  activeUsers: AdminActiveWindowCounts;
+  dailyAiUsage: AdminDailyAiUsagePoint[];
+  eventTotals: AdminEventTotal[];
+  weeklyRetention: AdminWeeklyRetentionRow[];
+  week1Retention: number | null;
+};

@@ -6,6 +6,7 @@ import { OrganizationContextGuard } from '../../common/guards/organization-conte
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { PrismaModule } from '../../database/prisma.module';
 import { AuditModule } from '../audit/audit.module';
+import { ProductAnalyticsModule } from '../product-analytics/product-analytics.module';
 import { UsageTrackingModule } from '../usage-tracking/usage-tracking.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 
@@ -18,6 +19,7 @@ import { AppointmentsService } from './appointments.service';
     JwtModule,
     AuditModule,
     UsageTrackingModule,
+    ProductAnalyticsModule,
     RealtimeModule,
   ],
   providers: [

@@ -12,6 +12,8 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
 import { BillingService } from '../billing/billing.service';
+import { ProductEventName } from '../product-analytics/product-event.constants';
+import { ProductAnalyticsService } from '../product-analytics/product-analytics.service';
 import { UsageMetric } from '../usage-tracking/usage-metric.constants';
 import { UsageTrackingService } from '../usage-tracking/usage-tracking.service';
 import { AuditService } from '../audit/audit.service';
@@ -96,6 +98,7 @@ export class AiService {
     private readonly prisma: PrismaService,
     private readonly billingService: BillingService,
     private readonly usageTrackingService: UsageTrackingService,
+    private readonly productAnalyticsService: ProductAnalyticsService,
     private readonly auditService: AuditService,
   ) {}
 
@@ -258,6 +261,15 @@ export class AiService {
       UsageMetric.AI_REQUESTS,
     );
 
+    void this.productAnalyticsService.trackEvent(
+      ProductEventName.AI_SUMMARY_GENERATED,
+      {
+        organizationId: actor.organizationId,
+        userId: actor.userId,
+        metadata: { model, tokens },
+      },
+    );
+
     return { tokens, model, content: trimmed };
   }
 
@@ -347,6 +359,15 @@ export class AiService {
     void this.usageTrackingService.increment(
       params.actor.organizationId,
       UsageMetric.AI_REQUESTS,
+    );
+
+    void this.productAnalyticsService.trackEvent(
+      ProductEventName.AI_SUMMARY_GENERATED,
+      {
+        organizationId: params.actor.organizationId,
+        userId: params.actor.userId,
+        metadata: { model, tokens },
+      },
     );
 
     return { content, tokens, model };

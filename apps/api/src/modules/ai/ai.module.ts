@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { PrismaModule } from '../../database/prisma.module';
 import { BillingModule } from '../billing/billing.module';
+import { ProductAnalyticsModule } from '../product-analytics/product-analytics.module';
 import { UsageTrackingModule } from '../usage-tracking/usage-tracking.module';
 import { AuditModule } from '../audit/audit.module';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
@@ -19,6 +20,7 @@ import { AiService } from './ai.service';
     PrismaModule,
     BillingModule,
     UsageTrackingModule,
+    ProductAnalyticsModule,
     JwtModule,
     AuditModule,
   ],

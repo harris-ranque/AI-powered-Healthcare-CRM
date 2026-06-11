@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Activity,
+  BarChart3,
   Building2,
   CreditCard,
   LayoutDashboard,
@@ -26,6 +27,7 @@ const items = [
   { label: 'Organizations', href: '/admin/organizations', icon: Building2 },
   { label: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCard },
   { label: 'AI Usage', href: '/admin/ai-usage', icon: Sparkles },
+  { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { label: 'System Health', href: '/admin/health', icon: Activity },
 ];
 

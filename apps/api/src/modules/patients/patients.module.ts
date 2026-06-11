@@ -6,6 +6,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { OrganizationContextGuard } from '../../common/guards/organization-context.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { BillingModule } from '../billing/billing.module';
+import { ProductAnalyticsModule } from '../product-analytics/product-analytics.module';
 import { UsageTrackingModule } from '../usage-tracking/usage-tracking.module';
 import { AiModule } from '../ai/ai.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
@@ -22,6 +23,7 @@ import { PatientsService } from './patients.service';
     PrismaModule,
     BillingModule,
     UsageTrackingModule,
+    ProductAnalyticsModule,
     JwtModule,
     AuditModule,
     AppointmentsModule,

@@ -2,6 +2,7 @@ import { api } from '@/lib/api/client';
 
 import type {
   AdminAiUsage,
+  AdminAnalytics,
   AdminHealth,
   AdminOrganizationRow,
   AdminOverview,
@@ -31,6 +32,11 @@ export const adminApi = {
 
   getHealth: async (): Promise<AdminHealth> => {
     const response = await api.get<AdminHealth>('/admin/health');
+    return response.data;
+  },
+
+  getAnalytics: async (): Promise<AdminAnalytics> => {
+    const response = await api.get<AdminAnalytics>('/admin/analytics');
     return response.data;
   },
 };

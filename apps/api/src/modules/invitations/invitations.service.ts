@@ -11,6 +11,8 @@ import { Permission } from '../../common/permissions';
 import type { OrganizationContext } from '../../common/types/organization-context.type';
 import { PrismaService } from '../../database/prisma.service';
 import { BillingService } from '../billing/billing.service';
+import { ProductEventName } from '../product-analytics/product-event.constants';
+import { ProductAnalyticsService } from '../product-analytics/product-analytics.service';
 import { AuditService } from '../audit/audit.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { EmailService } from '../queues/email/email.service';
@@ -41,6 +43,7 @@ export class InvitationsService {
     private readonly billingService: BillingService,
     private readonly emailService: EmailService,
     private readonly auditService: AuditService,
+    private readonly productAnalyticsService: ProductAnalyticsService,
     private readonly realtimeService: RealtimeService,
   ) {}
 
@@ -146,6 +149,12 @@ export class InvitationsService {
       actorId: invitedByUserId,
       createdAt: new Date().toISOString(),
       metadata: { invitationId: invitation.id, email, role: dto.role },
+    });
+
+    void this.productAnalyticsService.trackEvent(ProductEventName.USER_INVITED, {
+      organizationId: organization.organizationId,
+      userId: invitedByUserId,
+      metadata: { role: dto.role },
     });
 
     return this.toListItem(invitation);

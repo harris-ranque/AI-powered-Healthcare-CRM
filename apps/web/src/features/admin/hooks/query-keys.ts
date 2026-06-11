@@ -5,4 +5,5 @@ export const adminQueryKeys = {
   subscriptions: () => [...adminQueryKeys.all, 'subscriptions'] as const,
   aiUsage: () => [...adminQueryKeys.all, 'ai-usage'] as const,
   health: () => [...adminQueryKeys.all, 'health'] as const,
+  analytics: () => [...adminQueryKeys.all, 'analytics'] as const,
 };

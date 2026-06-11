@@ -70,6 +70,10 @@ const PAGE_META: Record<string, PageMeta> = {
     title: 'AI usage',
     description: 'Platform token consumption and top customers.',
   },
+  '/admin/analytics': {
+    title: 'Analytics',
+    description: 'Platform activity, product events, and cohort retention.',
+  },
   '/admin/health': {
     title: 'System health',
     description: 'Queues, infrastructure, and failed jobs.',

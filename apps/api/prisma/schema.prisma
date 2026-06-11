@@ -71,6 +71,7 @@ model Organization {
   apiKeys             ApiKey[]
   assistantConversations AssistantConversation[]
   usageMetrics         UsageMetric[]
+  productEvents        ProductEvent[]
 
   // =========================
   // SAAS Billing
@@ -372,6 +373,20 @@ model UsageMetric {
 
   @@unique([organizationId, metric, periodStart])
   @@index([organizationId, metric])
+}
+
+model ProductEvent {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId         String?
+  event          String
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([event, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([createdAt])
 }
 
 enum InvitationStatus {
