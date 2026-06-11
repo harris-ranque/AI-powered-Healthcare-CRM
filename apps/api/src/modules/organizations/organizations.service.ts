@@ -10,6 +10,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { UsageMetric } from '../usage-tracking/usage-metric.constants';
 import { UsageTrackingService } from '../usage-tracking/usage-tracking.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
+import { UpdateOrganizationDto } from './dto/update-organization.dto';
 
 export type OrganizationMemberListItem = {
   userId: string;
@@ -132,6 +133,32 @@ export class OrganizationsService {
     }
 
     return organization;
+  }
+
+  async update(
+    organizationId: string,
+    dto: UpdateOrganizationDto,
+  ): Promise<Organization> {
+    if (dto.name === undefined && dto.description === undefined) {
+      throw new BadRequestException('No fields to update');
+    }
+
+    const organization = await this.prisma.client.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true },
+    });
+
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return this.prisma.client.organization.update({
+      where: { id: organizationId },
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name } : {}),
+        ...(dto.description !== undefined ? { description: dto.description } : {}),
+      },
+    });
   }
 
   async listMembers(

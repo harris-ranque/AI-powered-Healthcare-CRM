@@ -10,4 +10,5 @@ export type AuthUser = {
   memberStatus?: MemberStatus;
   onboardingCompleted?: boolean;
   onboardingStep?: number;
+  hasPassword?: boolean;
 };

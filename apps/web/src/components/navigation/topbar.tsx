@@ -42,6 +42,18 @@ const PAGE_META: Record<string, PageMeta> = {
     title: 'Team members',
     description: 'Invite and manage your team and clients.',
   },
+  '/dashboard/settings/organization': {
+    title: 'Organization',
+    description: 'Update your clinic name and details.',
+  },
+  '/dashboard/settings/usage': {
+    title: 'Usage',
+    description: 'View current month usage against plan limits.',
+  },
+  '/dashboard/settings/security': {
+    title: 'Security',
+    description: 'Manage your account password and sign-in.',
+  },
   '/portal': {
     title: 'Patient portal',
     description: 'Your health information at a glance.',

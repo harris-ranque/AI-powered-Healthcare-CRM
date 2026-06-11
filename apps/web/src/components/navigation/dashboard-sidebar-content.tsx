@@ -7,7 +7,6 @@ import {
   Activity,
   Building2,
   CalendarDays,
-  CreditCard,
   LayoutDashboard,
   ShieldCheck,
   Stethoscope,
@@ -78,18 +77,10 @@ const items: NavItem[] = [
     visible: (role) => hasPermission(role, Permission.AUDIT_READ),
   },
   {
-    label: 'Billing',
-    href: '/dashboard/settings/billing',
-    icon: CreditCard,
-    visible: (role) => hasPermission(role, Permission.BILLING_MANAGE),
-  },
-  {
-    label: 'Members',
-    href: '/dashboard/settings/team',
+    label: 'Settings',
+    href: '/dashboard/settings',
     icon: UserCog,
-    visible: (role) =>
-      hasPermission(role, Permission.MEMBER_MANAGE) ||
-      hasPermission(role, Permission.CLIENT_INVITE),
+    visible: () => true,
   },
 ];
 

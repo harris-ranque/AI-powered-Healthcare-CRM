@@ -19,6 +19,7 @@ import { RegisterPatientDto } from './dto/register-patient.dto';
 import { RegisterProviderDto } from './dto/register-provider.dto';
 import { RegisterSoloDto } from './dto/register-solo.dto';
 import { RegisterStaffDto } from './dto/register-staff.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './types/jwt-payload.type';
 import { getLoginRateLimiter } from '../../common/security/login-rate-limit';
 import { EmailService } from '../queues/email/email.service';
@@ -68,6 +69,7 @@ export type AuthMeResponse = {
   memberStatus?: MemberStatus;
   onboardingCompleted?: boolean;
   onboardingStep?: number;
+  hasPassword: boolean;
 };
 
 import type {
@@ -653,6 +655,47 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    const user = await this.prisma.client.user.findUnique({
+      where: { id: userId },
+      select: { id: true, password: true, tokenVersion: true },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (!user.password) {
+      throw new BadRequestException(
+        'Password change unavailable for social login accounts',
+      );
+    }
+
+    const currentMatches = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
+
+    if (!currentMatches) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.client.user.update({
+      where: { id: userId },
+      data: {
+        password: passwordHash,
+        ...sessionRevocationUpdate(user),
+      },
+    });
+
+    return { message: 'Password updated successfully' };
+  }
+
   // ================================
   // Refresh Token
   // ================================
@@ -741,6 +784,7 @@ export class AuthService {
         email: true,
         name: true,
         role: true,
+        password: true,
       },
     });
     if (!user) {
@@ -774,6 +818,7 @@ export class AuthService {
           ? (ownedOrganization?.onboardingCompleted ?? false)
           : true,
       onboardingStep: ownedOrganization?.onboardingStep,
+      hasPassword: Boolean(user.password),
     };
   }
 

@@ -24,6 +24,7 @@ import {
   decodeGoogleOAuthState,
   getRegisterPathForOAuthState,
 } from './utils/google-oauth-state.util';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterClinicDto } from './dto/register-clinic.dto';
 import { RegisterProviderDto } from './dto/register-provider.dto';
@@ -158,6 +159,19 @@ export class AuthController {
       throw new BadRequestException('User context missing');
     }
     return this.authService.me(userId);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  changePassword(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    const userId = req.user?.sub;
+    if (!userId) {
+      throw new BadRequestException('User context missing');
+    }
+    return this.authService.changePassword(userId, dto);
   }
 
   private parseBearerToken(req: Request): string | undefined {

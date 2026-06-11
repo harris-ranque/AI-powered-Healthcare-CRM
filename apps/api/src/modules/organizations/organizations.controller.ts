@@ -22,6 +22,7 @@ import type { AuthenticatedRequest } from '../../common/types/authenticated-requ
 import type { OrganizationContext } from '../../common/types/organization-context.type';
 
 import { CreateOrganizationDto } from './dto/create-organization.dto';
+import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { OrganizationsService } from './organizations.service';
 
 @Controller('organizations')
@@ -64,6 +65,16 @@ export class OrganizationsController {
     @CurrentOrganization() organization: OrganizationContext,
   ): Promise<Organization> {
     return this.organizationsService.getById(organization.organizationId);
+  }
+
+  @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionsGuard)
+  @RequirePermissions(Permission.ORG_MANAGE)
+  @Patch('current')
+  updateCurrentOrganization(
+    @CurrentOrganization() organization: OrganizationContext,
+    @Body() dto: UpdateOrganizationDto,
+  ): Promise<Organization> {
+    return this.organizationsService.update(organization.organizationId, dto);
   }
 
   @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionsGuard)
