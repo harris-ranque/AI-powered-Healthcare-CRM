@@ -25,6 +25,8 @@ import { EmailService } from '../queues/email/email.service';
 import { AuditService } from '../audit/audit.service';
 import { BillingService } from '../billing/billing.service';
 import { InvitationsService } from '../invitations/invitations.service';
+import { UsageMetric } from '../usage-tracking/usage-metric.constants';
+import { UsageTrackingService } from '../usage-tracking/usage-tracking.service';
 import { OtpService } from './otp.service';
 import type { OtpPendingResponse } from './types/otp.types';
 
@@ -82,6 +84,7 @@ export class AuthService {
     private emailService: EmailService,
     private auditService: AuditService,
     private readonly billingService: BillingService,
+    private readonly usageTrackingService: UsageTrackingService,
     private invitationsService: InvitationsService,
     private otpService: OtpService,
   ) {}
@@ -419,6 +422,11 @@ export class AuthService {
       return createdUser;
     });
 
+    void this.usageTrackingService.increment(
+      staffTarget.organizationId,
+      UsageMetric.USERS,
+    );
+
     await this.emailService.sendWelcomeEmail(user.email, user.name ?? '');
     const tokens = await this.generateToken(user.id, user.email, user.role);
     await this.updateRefreshToken(user.id, tokens.refresh_token);
@@ -551,6 +559,13 @@ export class AuthService {
 
       return createdUser;
     });
+
+    if (!existingPatient) {
+      void this.usageTrackingService.increment(
+        organizationId,
+        UsageMetric.PATIENTS,
+      );
+    }
 
     await this.emailService.sendWelcomeEmail(user.email, user.name ?? '');
     const tokens = await this.generateToken(user.id, user.email, user.role);

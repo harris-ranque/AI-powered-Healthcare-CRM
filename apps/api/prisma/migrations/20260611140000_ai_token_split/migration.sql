@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "AiRequestLog" ADD COLUMN "promptTokens" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "AiRequestLog" ADD COLUMN "completionTokens" INTEGER NOT NULL DEFAULT 0;

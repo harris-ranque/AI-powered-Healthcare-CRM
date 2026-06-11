@@ -4,13 +4,11 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  MemberStatus,
-  Organization,
-  Role as PrismaRole,
-} from '@prisma/client';
+import { MemberStatus, Organization, Role as PrismaRole } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
+import { UsageMetric } from '../usage-tracking/usage-metric.constants';
+import { UsageTrackingService } from '../usage-tracking/usage-tracking.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 
 export type OrganizationMemberListItem = {
@@ -24,7 +22,10 @@ export type OrganizationMemberListItem = {
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly usageTrackingService: UsageTrackingService,
+  ) {}
 
   async create(
     dto: CreateOrganizationDto,
@@ -57,8 +58,8 @@ export class OrganizationsService {
     // ========================================
     // Create Organization + Membership + Role
     // ========================================
-    return this.prisma.client.$transaction(async (tx) => {
-      const organization = await tx.organization.create({
+    const organization = await this.prisma.client.$transaction(async (tx) => {
+      const created = await tx.organization.create({
         data: {
           name: dto.name,
           slug: dto.slug,
@@ -74,7 +75,7 @@ export class OrganizationsService {
       // Owners get an ACTIVE CLINIC_OWNER membership for the org context guard.
       await tx.organizationMember.create({
         data: {
-          organizationId: organization.id,
+          organizationId: created.id,
           userId,
           role: PrismaRole.CLINIC_OWNER,
           status: MemberStatus.ACTIVE,
@@ -85,12 +86,19 @@ export class OrganizationsService {
         where: { id: userId },
         data: {
           role: PrismaRole.CLINIC_OWNER,
-          organizationId: organization.id,
+          organizationId: created.id,
         },
       });
 
-      return organization;
+      return created;
     });
+
+    void this.usageTrackingService.increment(
+      organization.id,
+      UsageMetric.USERS,
+    );
+
+    return organization;
   }
 
   // ================================
@@ -164,7 +172,7 @@ export class OrganizationsService {
   ): Promise<{ userId: string; status: MemberStatus }> {
     const member = await this.prisma.client.organizationMember.findFirst({
       where: { organizationId, userId },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!member) {
       throw new NotFoundException('Member not found');
@@ -175,6 +183,21 @@ export class OrganizationsService {
       data: { status },
       select: { userId: true, status: true },
     });
+
+    const wasBillable = member.status !== MemberStatus.DISABLED;
+    const isBillable = updated.status !== MemberStatus.DISABLED;
+
+    if (wasBillable && !isBillable) {
+      void this.usageTrackingService.decrement(
+        organizationId,
+        UsageMetric.USERS,
+      );
+    } else if (!wasBillable && isBillable) {
+      void this.usageTrackingService.increment(
+        organizationId,
+        UsageMetric.USERS,
+      );
+    }
 
     return updated;
   }
@@ -206,9 +229,7 @@ export class OrganizationsService {
     return updated;
   }
 
-  async searchPublic(
-    query: string,
-  ): Promise<{ name: string; slug: string }[]> {
+  async searchPublic(query: string): Promise<{ name: string; slug: string }[]> {
     const q = query.trim();
     if (q.length < 2) {
       return [];

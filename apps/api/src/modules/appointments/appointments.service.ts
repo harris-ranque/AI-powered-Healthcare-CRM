@@ -8,6 +8,8 @@ import { AppointmentStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { UsageMetric } from '../usage-tracking/usage-metric.constants';
+import { UsageTrackingService } from '../usage-tracking/usage-tracking.service';
 import { RealtimeService } from '../realtime/realtime.service';
 
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -38,6 +40,7 @@ export class AppointmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly usageTrackingService: UsageTrackingService,
     private readonly realtimeService: RealtimeService,
   ) {}
 
@@ -96,6 +99,11 @@ export class AppointmentsService {
       },
     });
 
+    void this.usageTrackingService.increment(
+      actor.organizationId,
+      UsageMetric.APPOINTMENTS,
+    );
+
     return appointment;
   }
 
@@ -125,7 +133,10 @@ export class AppointmentsService {
     });
   }
 
-  getById(id: string, organizationId: string): Promise<AppointmentWithRelations> {
+  getById(
+    id: string,
+    organizationId: string,
+  ): Promise<AppointmentWithRelations> {
     return this.findOwnedAppointment(id, organizationId);
   }
 
@@ -189,6 +200,11 @@ export class AppointmentsService {
     await this.prisma.client.appointment.delete({
       where: { id: existing.id },
     });
+
+    void this.usageTrackingService.decrement(
+      actor.organizationId,
+      UsageMetric.APPOINTMENTS,
+    );
 
     await this.auditService.log({
       userId: actor.userId,

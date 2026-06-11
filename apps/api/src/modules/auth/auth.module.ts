@@ -11,6 +11,7 @@ import { PrismaModule } from '../../database/prisma.module';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { AuditModule } from '../audit/audit.module';
 import { BillingModule } from '../billing/billing.module';
+import { UsageTrackingModule } from '../usage-tracking/usage-tracking.module';
 import { InvitationsModule } from '../invitations/invitations.module';
 
 @Module({
@@ -18,6 +19,7 @@ import { InvitationsModule } from '../invitations/invitations.module';
     PassportModule.register({ session: false }),
     PrismaModule,
     BillingModule,
+    UsageTrackingModule,
     EmailModule,
     forwardRef(() => InvitationsModule),
     JwtModule.registerAsync({

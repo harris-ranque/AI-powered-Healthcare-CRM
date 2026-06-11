@@ -12,6 +12,8 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
 import { BillingService } from '../billing/billing.service';
+import { UsageMetric } from '../usage-tracking/usage-metric.constants';
+import { UsageTrackingService } from '../usage-tracking/usage-tracking.service';
 import { AuditService } from '../audit/audit.service';
 import { OPENAI_CLIENT } from './ai.client';
 import {
@@ -93,6 +95,7 @@ export class AiService {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly billingService: BillingService,
+    private readonly usageTrackingService: UsageTrackingService,
     private readonly auditService: AuditService,
   ) {}
 
@@ -206,6 +209,8 @@ export class AiService {
 
     let content = '';
     let tokens = 0;
+    let promptTokens = 0;
+    let completionTokens = 0;
 
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content;
@@ -213,8 +218,16 @@ export class AiService {
         content += delta;
         yield delta;
       }
-      if (chunk.usage?.total_tokens) {
-        tokens = chunk.usage.total_tokens;
+      if (chunk.usage) {
+        if (chunk.usage.total_tokens) {
+          tokens = chunk.usage.total_tokens;
+        }
+        if (chunk.usage.prompt_tokens) {
+          promptTokens = chunk.usage.prompt_tokens;
+        }
+        if (chunk.usage.completion_tokens) {
+          completionTokens = chunk.usage.completion_tokens;
+        }
       }
     }
 
@@ -233,10 +246,17 @@ export class AiService {
         prompt: promptForLog,
         response: trimmed,
         tokens,
+        promptTokens,
+        completionTokens,
         model,
         cost,
       },
     });
+
+    void this.usageTrackingService.increment(
+      actor.organizationId,
+      UsageMetric.AI_REQUESTS,
+    );
 
     return { tokens, model, content: trimmed };
   }
@@ -304,6 +324,8 @@ export class AiService {
     }
 
     const tokens = completion.usage?.total_tokens ?? 0;
+    const promptTokens = completion.usage?.prompt_tokens ?? 0;
+    const completionTokens = completion.usage?.completion_tokens ?? 0;
     const cost = this.estimateCost(model, tokens);
 
     await this.prisma.client.aiRequestLog.create({
@@ -315,10 +337,17 @@ export class AiService {
         prompt: params.prompt,
         response: content,
         tokens,
+        promptTokens,
+        completionTokens,
         model,
         cost,
       },
     });
+
+    void this.usageTrackingService.increment(
+      params.actor.organizationId,
+      UsageMetric.AI_REQUESTS,
+    );
 
     return { content, tokens, model };
   }

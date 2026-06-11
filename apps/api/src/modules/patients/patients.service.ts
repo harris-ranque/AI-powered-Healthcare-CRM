@@ -7,6 +7,8 @@ import { AppointmentStatus, Prisma, type Patient } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
 import { BillingService } from '../billing/billing.service';
+import { UsageMetric } from '../usage-tracking/usage-metric.constants';
+import { UsageTrackingService } from '../usage-tracking/usage-tracking.service';
 import { AiService } from '../ai/ai.service';
 import { AppointmentsService } from '../appointments/appointments.service';
 import type { AppointmentWithRelations } from '../appointments/appointments.service';
@@ -39,6 +41,7 @@ export class PatientsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly billingService: BillingService,
+    private readonly usageTrackingService: UsageTrackingService,
     private readonly auditService: AuditService,
     private readonly clinicalNotesService: ClinicalNotesService,
     private readonly storageService: StorageService,
@@ -71,6 +74,11 @@ export class PatientsService {
         createdAt: new Date().toISOString(),
         metadata: { patientId: patient.id },
       });
+
+      void this.usageTrackingService.increment(
+        actor.organizationId,
+        UsageMetric.PATIENTS,
+      );
 
       return patient;
     } catch (error) {
@@ -287,6 +295,11 @@ export class PatientsService {
       resourceId: deleted.id,
     });
 
+    void this.usageTrackingService.decrement(
+      actor.organizationId,
+      UsageMetric.PATIENTS,
+    );
+
     return deleted;
   }
 
@@ -312,6 +325,11 @@ export class PatientsService {
         resource: 'PATIENT',
         resourceId: restored.id,
       });
+
+      void this.usageTrackingService.increment(
+        actor.organizationId,
+        UsageMetric.PATIENTS,
+      );
 
       return restored;
     } catch (error) {

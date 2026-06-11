@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { PrismaModule } from '../../database/prisma.module';
 import { BillingModule } from '../billing/billing.module';
+import { UsageTrackingModule } from '../usage-tracking/usage-tracking.module';
 import { AuditModule } from '../audit/audit.module';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { OrganizationContextGuard } from '../../common/guards/organization-context.guard';
@@ -14,7 +15,13 @@ import { PatientAiController } from './patient-ai.controller';
 import { AiService } from './ai.service';
 
 @Module({
-  imports: [PrismaModule, BillingModule, JwtModule, AuditModule],
+  imports: [
+    PrismaModule,
+    BillingModule,
+    UsageTrackingModule,
+    JwtModule,
+    AuditModule,
+  ],
   providers: [
     AiService,
     openAiClientProvider,

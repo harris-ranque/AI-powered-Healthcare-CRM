@@ -16,6 +16,8 @@ import { randomUUID } from 'crypto';
 
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { UsageMetric } from '../usage-tracking/usage-metric.constants';
+import { UsageTrackingService } from '../usage-tracking/usage-tracking.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { r2Client } from './r2.client';
 import type { ConfirmUploadDto } from './dto/confirm-upload.dto';
@@ -48,6 +50,7 @@ export class StorageService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly usageTrackingService: UsageTrackingService,
     private readonly realtimeService: RealtimeService,
   ) {}
 
@@ -164,6 +167,12 @@ export class StorageService {
         },
       });
 
+      void this.usageTrackingService.track(
+        actor.organizationId,
+        UsageMetric.STORAGE_BYTES,
+        contentLength,
+      );
+
       return file;
     } catch (error) {
       if (
@@ -236,6 +245,12 @@ export class StorageService {
     }
 
     await this.prisma.deleteFile(file.id);
+
+    void this.usageTrackingService.track(
+      actor.organizationId,
+      UsageMetric.STORAGE_BYTES,
+      -file.size,
+    );
 
     await this.auditService.log({
       userId: actor.userId,

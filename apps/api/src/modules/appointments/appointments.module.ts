@@ -6,13 +6,20 @@ import { OrganizationContextGuard } from '../../common/guards/organization-conte
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { PrismaModule } from '../../database/prisma.module';
 import { AuditModule } from '../audit/audit.module';
+import { UsageTrackingModule } from '../usage-tracking/usage-tracking.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 
 import { AppointmentsController } from './appointments.controller';
 import { AppointmentsService } from './appointments.service';
 
 @Module({
-  imports: [PrismaModule, JwtModule, AuditModule, RealtimeModule],
+  imports: [
+    PrismaModule,
+    JwtModule,
+    AuditModule,
+    UsageTrackingModule,
+    RealtimeModule,
+  ],
   providers: [
     AppointmentsService,
     JwtAuthGuard,

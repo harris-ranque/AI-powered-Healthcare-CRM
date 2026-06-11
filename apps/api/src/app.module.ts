@@ -36,6 +36,7 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { SearchModule } from './modules/search/search.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
+import { UsageTrackingModule } from './modules/usage-tracking/usage-tracking.module';
 
 @Module({
   imports: [
@@ -90,6 +91,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     LoggerModule,
     MetricsModule,
     BillingModule,
+    UsageTrackingModule,
     QueuesModule,
   ],
   // controllers: [AppController],

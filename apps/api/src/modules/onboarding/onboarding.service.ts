@@ -14,6 +14,8 @@ import { planLimitsForDb } from '../billing/plans';
 import { CreateInvitationDto } from '../invitations/dto/create-invitation.dto';
 import { InvitationsService } from '../invitations/invitations.service';
 import { StripeService } from '../stripe/stripe.service';
+import { UsageMetric } from '../usage-tracking/usage-metric.constants';
+import { UsageTrackingService } from '../usage-tracking/usage-tracking.service';
 import { CreateOnboardingClinicDto } from './dto/create-onboarding-clinic.dto';
 import { OnboardingPlanDto } from './dto/onboarding-plan.dto';
 import { UpdateClinicSizeDto } from './dto/update-clinic-size.dto';
@@ -34,6 +36,7 @@ export class OnboardingService {
     private readonly prisma: PrismaService,
     private readonly invitationsService: InvitationsService,
     private readonly stripeService: StripeService,
+    private readonly usageTrackingService: UsageTrackingService,
   ) {}
 
   async getState(userId: string): Promise<OnboardingState> {
@@ -128,6 +131,11 @@ export class OnboardingService {
 
       return created;
     });
+
+    void this.usageTrackingService.increment(
+      organization.id,
+      UsageMetric.USERS,
+    );
 
     return {
       organizationId: organization.id,

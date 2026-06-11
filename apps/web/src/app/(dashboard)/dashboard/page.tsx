@@ -2,6 +2,7 @@
 
 import {
   CalendarClock,
+  Coins,
   FileText,
   FileUp,
   NotebookPen,
@@ -28,6 +29,14 @@ import { useUpcomingAppointments } from '@/features/dashboard/hooks/use-upcoming
 import { CreatePatientDialog } from '@/features/patients/components/create-patient-dialog';
 
 const ANALYTICS_DAYS = 30;
+
+function formatTokens(value: number): string {
+  return value.toLocaleString();
+}
+
+function formatCost(value: number): string {
+  return `$${value.toFixed(2)}`;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -94,6 +103,24 @@ export default function DashboardPage() {
           icon={Sparkles}
           isLoading={statsLoading}
         />
+        {canUseAi ? (
+          <>
+            <MetricCard
+              label="Tokens this month"
+              value={formatTokens(stats?.aiTokensThisMonth ?? 0)}
+              icon={Sparkles}
+              hint="This month"
+              isLoading={statsLoading}
+            />
+            <MetricCard
+              label="AI cost this month"
+              value={formatCost(stats?.aiCostThisMonth ?? 0)}
+              icon={Coins}
+              hint="This month"
+              isLoading={statsLoading}
+            />
+          </>
+        ) : null}
       </DashboardGrid>
 
       <div className="grid gap-6 lg:grid-cols-2">

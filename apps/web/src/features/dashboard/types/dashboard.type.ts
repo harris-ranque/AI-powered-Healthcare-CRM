@@ -5,6 +5,9 @@ export type DashboardStats = {
   files: number;
   aiSummaries: number;
   appointmentsToday: number;
+  aiTokensThisMonth: number;
+  aiCostThisMonth: number;
+  aiRequestsThisMonth: number;
 };
 
 export type PatientGrowthPoint = {

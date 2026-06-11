@@ -9,6 +9,9 @@ export type DashboardStats = {
   files: number;
   aiSummaries: number;
   appointmentsToday: number;
+  aiTokensThisMonth: number;
+  aiCostThisMonth: number;
+  aiRequestsThisMonth: number;
 };
 
 export type PatientGrowthPoint = {
@@ -33,6 +36,10 @@ function startOfUtcDay(date: Date): Date {
   return new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
   );
+}
+
+function startOfUtcMonth(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
 
 function formatUtcDayKey(date: Date): string {
@@ -74,7 +81,9 @@ export class DashboardService {
   ) {}
 
   async getStats(organizationId: string): Promise<DashboardStats> {
-    const [patients, files, aiSummaries, appointmentsToday] =
+    const monthStart = startOfUtcMonth(new Date());
+
+    const [patients, files, aiSummaries, appointmentsToday, aiUsageThisMonth] =
       await Promise.all([
         this.prisma.client.patient.count({
           where: { organizationId, deletedAt: null },
@@ -86,9 +95,25 @@ export class DashboardService {
           where: { organizationId },
         }),
         this.appointmentsService.countToday(organizationId),
+        this.prisma.client.aiRequestLog.aggregate({
+          where: {
+            organizationId,
+            createdAt: { gte: monthStart },
+          },
+          _sum: { tokens: true, cost: true },
+          _count: true,
+        }),
       ]);
 
-    return { patients, files, aiSummaries, appointmentsToday };
+    return {
+      patients,
+      files,
+      aiSummaries,
+      appointmentsToday,
+      aiTokensThisMonth: aiUsageThisMonth._sum.tokens ?? 0,
+      aiCostThisMonth: aiUsageThisMonth._sum.cost ?? 0,
+      aiRequestsThisMonth: aiUsageThisMonth._count,
+    };
   }
 
   getRecentActivity(

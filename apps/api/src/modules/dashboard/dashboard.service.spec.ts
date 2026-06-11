@@ -11,7 +11,11 @@ describe('DashboardService', () => {
   let service: DashboardService;
   let prismaPatient: { count: jest.Mock; findMany: jest.Mock };
   let prismaFile: { count: jest.Mock };
-  let prismaAiRequestLog: { count: jest.Mock; findMany: jest.Mock };
+  let prismaAiRequestLog: {
+    count: jest.Mock;
+    findMany: jest.Mock;
+    aggregate: jest.Mock;
+  };
   let countToday: jest.Mock;
   let listForOrganization: jest.Mock;
 
@@ -50,6 +54,10 @@ describe('DashboardService', () => {
     prismaFile.count.mockReset();
     prismaAiRequestLog.count.mockReset();
     prismaAiRequestLog.findMany.mockReset().mockResolvedValue([]);
+    prismaAiRequestLog.aggregate.mockReset().mockResolvedValue({
+      _sum: { tokens: 0, cost: 0 },
+      _count: 0,
+    });
     countToday.mockReset().mockResolvedValue(2);
     listForOrganization.mockReset().mockResolvedValue([{ id: 'log-1' }]);
   });
@@ -63,6 +71,10 @@ describe('DashboardService', () => {
       prismaPatient.count.mockResolvedValue(10);
       prismaFile.count.mockResolvedValue(5);
       prismaAiRequestLog.count.mockResolvedValue(3);
+      prismaAiRequestLog.aggregate.mockResolvedValue({
+        _sum: { tokens: 8420, cost: 2.91 },
+        _count: 12,
+      });
       countToday.mockResolvedValue(2);
 
       const result = await service.getStats(ORG_ID);
@@ -76,12 +88,25 @@ describe('DashboardService', () => {
       expect(prismaAiRequestLog.count).toHaveBeenCalledWith({
         where: { organizationId: ORG_ID },
       });
+      expect(prismaAiRequestLog.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            organizationId: ORG_ID,
+            createdAt: expect.objectContaining({ gte: expect.any(Date) }),
+          }),
+          _sum: { tokens: true, cost: true },
+          _count: true,
+        }),
+      );
       expect(countToday).toHaveBeenCalledWith(ORG_ID);
       expect(result).toEqual({
         patients: 10,
         files: 5,
         aiSummaries: 3,
         appointmentsToday: 2,
+        aiTokensThisMonth: 8420,
+        aiCostThisMonth: 2.91,
+        aiRequestsThisMonth: 12,
       });
     });
   });
