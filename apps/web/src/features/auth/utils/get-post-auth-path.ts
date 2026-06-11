@@ -18,6 +18,10 @@ export function getPostAuthPath(
     return '/portal';
   }
 
+  if (role === Role.SUPER_ADMIN) {
+    return '/admin';
+  }
+
   if (role === Role.CLINIC_OWNER && onboardingCompleted === false) {
     return '/onboarding';
   }

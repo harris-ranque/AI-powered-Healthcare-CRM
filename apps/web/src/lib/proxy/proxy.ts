@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 import { CLIENT_SESSION_COOKIE } from '@/features/auth/utils/client-session-hint';
 
-const staffProtectedPrefixes = ['/dashboard', '/onboarding'];
+const staffProtectedPrefixes = ['/dashboard', '/onboarding', '/admin'];
 const portalProtectedPrefixes = ['/portal'];
 const authRoutes = ['/login', '/register'];
 

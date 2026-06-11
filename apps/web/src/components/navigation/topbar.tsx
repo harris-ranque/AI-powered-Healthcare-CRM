@@ -54,6 +54,26 @@ const PAGE_META: Record<string, PageMeta> = {
     title: 'Security',
     description: 'Manage your account password and sign-in.',
   },
+  '/admin': {
+    title: 'Platform admin',
+    description: 'Internal platform operations overview.',
+  },
+  '/admin/organizations': {
+    title: 'Organizations',
+    description: 'All clinics on the platform.',
+  },
+  '/admin/subscriptions': {
+    title: 'Subscriptions',
+    description: 'Subscription status across organizations.',
+  },
+  '/admin/ai-usage': {
+    title: 'AI usage',
+    description: 'Platform token consumption and top customers.',
+  },
+  '/admin/health': {
+    title: 'System health',
+    description: 'Queues, infrastructure, and failed jobs.',
+  },
   '/portal': {
     title: 'Patient portal',
     description: 'Your health information at a glance.',
@@ -94,7 +114,9 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const meta = getPageMeta(pathname);
   const settingsHref = pathname?.startsWith('/portal')
     ? '/portal/profile'
-    : '/dashboard/settings';
+    : pathname?.startsWith('/admin')
+      ? '/dashboard/settings/security'
+      : '/dashboard/settings';
 
   return (
     <header className="medical-topbar-accent flex h-16 items-center justify-between gap-3 px-4 sm:px-6">

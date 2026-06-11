@@ -37,6 +37,7 @@ import { SearchModule } from './modules/search/search.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { UsageTrackingModule } from './modules/usage-tracking/usage-tracking.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -93,6 +94,7 @@ import { UsageTrackingModule } from './modules/usage-tracking/usage-tracking.mod
     BillingModule,
     UsageTrackingModule,
     QueuesModule,
+    AdminModule,
   ],
   // controllers: [AppController],
   providers: [

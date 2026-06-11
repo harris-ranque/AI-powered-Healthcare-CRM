@@ -21,6 +21,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       return;
     }
     if (user) {
+      if (user.role === Role.SUPER_ADMIN) {
+        router.push('/admin');
+        return;
+      }
       if (isPatientRole(user.role)) {
         router.push('/portal');
         return;
@@ -51,7 +55,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   if (
     user &&
-    (isPatientRole(user.role) ||
+    (user.role === Role.SUPER_ADMIN ||
+      isPatientRole(user.role) ||
       user.memberStatus === 'PENDING' ||
       (user.role === Role.CLINIC_OWNER && user.onboardingCompleted === false))
   ) {
