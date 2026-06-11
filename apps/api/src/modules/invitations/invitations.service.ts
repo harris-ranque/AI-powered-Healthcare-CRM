@@ -10,6 +10,7 @@ import { randomBytes } from 'node:crypto';
 import { Permission } from '../../common/permissions';
 import type { OrganizationContext } from '../../common/types/organization-context.type';
 import { PrismaService } from '../../database/prisma.service';
+import { BillingService } from '../billing/billing.service';
 import { AuditService } from '../audit/audit.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { EmailService } from '../queues/email/email.service';
@@ -37,6 +38,7 @@ export type InvitationListItem = {
 export class InvitationsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly billingService: BillingService,
     private readonly emailService: EmailService,
     private readonly auditService: AuditService,
     private readonly realtimeService: RealtimeService,
@@ -48,6 +50,14 @@ export class InvitationsService {
     invitedByUserId: string,
   ): Promise<InvitationListItem> {
     this.assertCanInvite(dto.role, organization.permissions);
+
+    if (dto.role === Role.PATIENT) {
+      await this.billingService.assertCanCreatePatient(
+        organization.organizationId,
+      );
+    } else {
+      await this.billingService.assertCanAddMember(organization.organizationId);
+    }
 
     const email = dto.email.toLowerCase().trim();
 

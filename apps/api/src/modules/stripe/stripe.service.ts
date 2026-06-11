@@ -10,7 +10,7 @@ import type { Request } from 'express';
 import Stripe from 'stripe';
 import { SubscriptionPlan as PrismaSubscriptionPlan } from '@prisma/client';
 
-import { PLAN_CONFIG } from '../billing/plans';
+import { planLimitsForDb } from '../billing/plans';
 import { PrismaService } from '../../database/prisma.service';
 import { SubscriptionPlan } from './dto/create-subscription.dto';
 import { STRIPE_CLIENT } from './stripe.client';
@@ -258,7 +258,6 @@ export class StripeService {
     }
 
     const prismaPlan = this.mapCheckoutPlanToPrisma(plan);
-    const planConfig = prismaPlan ? PLAN_CONFIG[prismaPlan] : undefined;
 
     await this.prisma.client.organization.update({
       where: { id: organizationId },
@@ -267,13 +266,7 @@ export class StripeService {
         stripeSubscriptionStatus: 'ACTIVE',
         stripeSubscriptionPlan: plan,
         ...(prismaPlan ? { subscriptionPlan: prismaPlan } : {}),
-        ...(planConfig
-          ? {
-              memberLimit: planConfig.memberLimit,
-              storageLimitMb: planConfig.storageLimitMb,
-              apiLimitPerMonth: planConfig.apiLimitPerMonth,
-            }
-          : {}),
+        ...(prismaPlan ? planLimitsForDb(prismaPlan) : {}),
         onboardingStep: 5,
       },
     });

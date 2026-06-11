@@ -10,12 +10,14 @@ import { EmailModule } from '../queues/email/email.module';
 import { PrismaModule } from '../../database/prisma.module';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { AuditModule } from '../audit/audit.module';
+import { BillingModule } from '../billing/billing.module';
 import { InvitationsModule } from '../invitations/invitations.module';
 
 @Module({
   imports: [
     PassportModule.register({ session: false }),
     PrismaModule,
+    BillingModule,
     EmailModule,
     forwardRef(() => InvitationsModule),
     JwtModule.registerAsync({

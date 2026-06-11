@@ -6,6 +6,7 @@ import {
 import { AppointmentStatus, Prisma, type Patient } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
+import { BillingService } from '../billing/billing.service';
 import { AiService } from '../ai/ai.service';
 import { AppointmentsService } from '../appointments/appointments.service';
 import type { AppointmentWithRelations } from '../appointments/appointments.service';
@@ -37,6 +38,7 @@ export type PatientActor = {
 export class PatientsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly billingService: BillingService,
     private readonly auditService: AuditService,
     private readonly clinicalNotesService: ClinicalNotesService,
     private readonly storageService: StorageService,
@@ -46,6 +48,8 @@ export class PatientsService {
   ) {}
 
   async create(dto: CreatePatientDto, actor: PatientActor): Promise<Patient> {
+    await this.billingService.assertCanCreatePatient(actor.organizationId);
+
     try {
       const patient = await this.prisma.client.patient.create({
         data: this.toCreateData(dto, actor.organizationId),

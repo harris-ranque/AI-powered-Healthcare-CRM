@@ -23,6 +23,7 @@ import { JwtPayload } from './types/jwt-payload.type';
 import { getLoginRateLimiter } from '../../common/security/login-rate-limit';
 import { EmailService } from '../queues/email/email.service';
 import { AuditService } from '../audit/audit.service';
+import { BillingService } from '../billing/billing.service';
 import { InvitationsService } from '../invitations/invitations.service';
 import { OtpService } from './otp.service';
 import type { OtpPendingResponse } from './types/otp.types';
@@ -80,6 +81,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private emailService: EmailService,
     private auditService: AuditService,
+    private readonly billingService: BillingService,
     private invitationsService: InvitationsService,
     private otpService: OtpService,
   ) {}
@@ -347,6 +349,9 @@ export class AuthService {
     registerDto: RegisterStaffDto,
     resolved: ResolvedRegistration,
   ): Promise<AuthTokenResponse> {
+    const staffTarget = await this.resolveStaffRegistrationTarget(registerDto);
+    await this.billingService.assertCanAddMember(staffTarget.organizationId);
+
     const user = await this.prisma.client.$transaction(async (tx) => {
       let organizationId: string;
       let memberRole: Role;
@@ -459,8 +464,20 @@ export class AuthService {
     registerDto: RegisterPatientDto,
     resolved: ResolvedRegistration,
   ): Promise<AuthTokenResponse> {
+    const organizationId = await this.resolvePatientOrganizationId(registerDto);
+    const existingPatient = await this.prisma.client.patient.findFirst({
+      where: {
+        organizationId,
+        email: registerDto.email,
+        userId: null,
+      },
+    });
+    if (!existingPatient) {
+      await this.billingService.assertCanCreatePatient(organizationId);
+    }
+
     const user = await this.prisma.client.$transaction(async (tx) => {
-      let organizationId: string;
+      let resolvedOrganizationId: string;
 
       if (registerDto.inviteToken) {
         const consumed = await this.invitationsService.consume(
@@ -477,7 +494,7 @@ export class AuthService {
         ) {
           throw new BadRequestException('Clinic does not match invitation');
         }
-        organizationId = consumed.organizationId;
+        resolvedOrganizationId = consumed.organizationId;
       } else {
         if (!registerDto.clinicSlug) {
           throw new BadRequestException('Clinic is required');
@@ -489,7 +506,7 @@ export class AuthService {
         if (!organization) {
           throw new NotFoundException('Clinic not found');
         }
-        organizationId = organization.id;
+        resolvedOrganizationId = organization.id;
       }
 
       const createdUser = await tx.user.create({
@@ -499,27 +516,27 @@ export class AuthService {
           googleId: resolved.googleId,
           name: `${registerDto.firstName} ${registerDto.lastName}`.trim(),
           role: Role.PATIENT,
-          organizationId,
+          organizationId: resolvedOrganizationId,
         },
       });
 
-      const existingPatient = await tx.patient.findFirst({
+      const linkedPatient = await tx.patient.findFirst({
         where: {
-          organizationId,
+          organizationId: resolvedOrganizationId,
           email: registerDto.email,
           userId: null,
         },
       });
 
-      if (existingPatient) {
+      if (linkedPatient) {
         await tx.patient.update({
-          where: { id: existingPatient.id },
+          where: { id: linkedPatient.id },
           data: { userId: createdUser.id },
         });
       } else {
         await tx.patient.create({
           data: {
-            organizationId,
+            organizationId: resolvedOrganizationId,
             userId: createdUser.id,
             firstName: registerDto.firstName,
             lastName: registerDto.lastName,
@@ -539,6 +556,70 @@ export class AuthService {
     const tokens = await this.generateToken(user.id, user.email, user.role);
     await this.updateRefreshToken(user.id, tokens.refresh_token);
     return tokens;
+  }
+
+  private async resolveStaffRegistrationTarget(
+    registerDto: RegisterStaffDto,
+  ): Promise<{ organizationId: string; memberRole: Role }> {
+    if (registerDto.inviteToken) {
+      const invitation = await this.prisma.client.invitation.findUnique({
+        where: { token: registerDto.inviteToken },
+        select: { organizationId: true, role: true },
+      });
+      if (!invitation) {
+        throw new BadRequestException('Invalid invitation');
+      }
+      return {
+        organizationId: invitation.organizationId,
+        memberRole: invitation.role,
+      };
+    }
+
+    if (!registerDto.clinicSlug || !registerDto.role) {
+      throw new BadRequestException('Clinic and role are required');
+    }
+
+    const organization = await this.prisma.client.organization.findUnique({
+      where: { slug: registerDto.clinicSlug },
+      select: { id: true },
+    });
+    if (!organization) {
+      throw new NotFoundException('Clinic not found');
+    }
+
+    return {
+      organizationId: organization.id,
+      memberRole: registerDto.role,
+    };
+  }
+
+  private async resolvePatientOrganizationId(
+    registerDto: RegisterPatientDto,
+  ): Promise<string> {
+    if (registerDto.inviteToken) {
+      const invitation = await this.prisma.client.invitation.findUnique({
+        where: { token: registerDto.inviteToken },
+        select: { organizationId: true },
+      });
+      if (!invitation) {
+        throw new BadRequestException('Invalid invitation');
+      }
+      return invitation.organizationId;
+    }
+
+    if (!registerDto.clinicSlug) {
+      throw new BadRequestException('Clinic is required');
+    }
+
+    const organization = await this.prisma.client.organization.findUnique({
+      where: { slug: registerDto.clinicSlug },
+      select: { id: true },
+    });
+    if (!organization) {
+      throw new NotFoundException('Clinic not found');
+    }
+
+    return organization.id;
   }
 
   // ================================

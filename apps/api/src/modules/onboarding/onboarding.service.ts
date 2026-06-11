@@ -10,7 +10,7 @@ import { getPermissionsForRole } from '../../common/permissions';
 import type { OrganizationContext } from '../../common/types/organization-context.type';
 import { suggestSlug } from '../../common/utils/suggest-slug';
 import { PrismaService } from '../../database/prisma.service';
-import { PLAN_CONFIG } from '../billing/plans';
+import { planLimitsForDb } from '../billing/plans';
 import { CreateInvitationDto } from '../invitations/dto/create-invitation.dto';
 import { InvitationsService } from '../invitations/invitations.service';
 import { StripeService } from '../stripe/stripe.service';
@@ -235,14 +235,11 @@ export class OnboardingService {
     }
 
     if (dto.plan === 'free') {
-      const freeConfig = PLAN_CONFIG.FREE;
       const updated = await this.prisma.client.organization.update({
         where: { id: organization.id },
         data: {
           subscriptionPlan: SubscriptionPlan.FREE,
-          memberLimit: freeConfig.memberLimit,
-          storageLimitMb: freeConfig.storageLimitMb,
-          apiLimitPerMonth: freeConfig.apiLimitPerMonth,
+          ...planLimitsForDb(SubscriptionPlan.FREE),
           onboardingStep: 5,
         },
         select: {

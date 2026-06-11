@@ -85,11 +85,15 @@ model Organization {
 
   subscriptionPlan SubscriptionPlan @default(FREE)
 
-  memberLimit Int @default(5)
+  memberLimit Int @default(2)
 
   storageLimitMb Int @default(1024)
 
   apiLimitPerMonth Int @default(10000)
+
+  patientLimit Int @default(50)
+
+  aiRequestLimitPerMonth Int @default(20)
 
   onboardingCompleted Boolean    @default(false)
   onboardingStep      Int        @default(1)

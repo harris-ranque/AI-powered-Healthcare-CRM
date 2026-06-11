@@ -11,6 +11,7 @@ import OpenAI from 'openai';
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
+import { BillingService } from '../billing/billing.service';
 import { AuditService } from '../audit/audit.service';
 import { OPENAI_CLIENT } from './ai.client';
 import {
@@ -91,6 +92,7 @@ export class AiService {
     @Inject(OPENAI_CLIENT) private readonly openai: OpenAI | null,
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly billingService: BillingService,
     private readonly auditService: AuditService,
   ) {}
 
@@ -182,6 +184,8 @@ export class AiService {
       );
     }
 
+    await this.billingService.assertCanUseAi(actor.organizationId);
+
     const model =
       this.config.get<string>('OPENAI_MODEL')?.trim() || DEFAULT_OPENAI_MODEL;
 
@@ -195,7 +199,9 @@ export class AiService {
         messages,
       });
     } catch {
-      throw new BadGatewayException('Failed to generate response from AI provider');
+      throw new BadGatewayException(
+        'Failed to generate response from AI provider',
+      );
     }
 
     let content = '';
@@ -268,6 +274,8 @@ export class AiService {
       );
     }
 
+    await this.billingService.assertCanUseAi(params.actor.organizationId);
+
     const model =
       this.config.get<string>('OPENAI_MODEL')?.trim() || DEFAULT_OPENAI_MODEL;
 
@@ -285,7 +293,9 @@ export class AiService {
           : {}),
       });
     } catch {
-      throw new BadGatewayException('Failed to generate summary from AI provider');
+      throw new BadGatewayException(
+        'Failed to generate summary from AI provider',
+      );
     }
 
     const content = completion.choices[0]?.message?.content?.trim();
@@ -334,7 +344,9 @@ export class AiService {
         followUpTasks: this.toStringArray(parsed.followUpTasks),
       };
     } catch {
-      throw new BadGatewayException('AI provider returned invalid key points JSON');
+      throw new BadGatewayException(
+        'AI provider returned invalid key points JSON',
+      );
     }
   }
 

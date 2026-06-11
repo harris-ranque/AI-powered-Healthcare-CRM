@@ -1,12 +1,10 @@
 import { ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import {
-  InvitationStatus,
-  Role,
-} from '@prisma/client';
+import { InvitationStatus, Role } from '@prisma/client';
 
 import { Permission } from '../../common/permissions';
 import { PrismaService } from '../../database/prisma.service';
+import { BillingService } from '../billing/billing.service';
 import { AuditService } from '../audit/audit.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { EmailService } from '../queues/email/email.service';
@@ -30,6 +28,10 @@ describe('InvitationsService', () => {
   };
   const emailService = { sendInvitationEmail: jest.fn() };
   const auditService = { log: jest.fn() };
+  const billingService = {
+    assertCanCreatePatient: jest.fn().mockResolvedValue(undefined),
+    assertCanAddMember: jest.fn().mockResolvedValue(undefined),
+  };
 
   const orgContext = {
     organizationId: 'org-1',
@@ -43,6 +45,7 @@ describe('InvitationsService', () => {
       providers: [
         InvitationsService,
         { provide: PrismaService, useValue: prisma },
+        { provide: BillingService, useValue: billingService },
         { provide: EmailService, useValue: emailService },
         { provide: AuditService, useValue: auditService },
         {
@@ -134,7 +137,12 @@ describe('InvitationsService', () => {
   it('filters list by inviteeType staff', async () => {
     prisma.client.invitation.findMany.mockResolvedValue([]);
 
-    await service.listForOrganization('org-1', InvitationStatus.PENDING, undefined, 'staff');
+    await service.listForOrganization(
+      'org-1',
+      InvitationStatus.PENDING,
+      undefined,
+      'staff',
+    );
 
     expect(prisma.client.invitation.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
