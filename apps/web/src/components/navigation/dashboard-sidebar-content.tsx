@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Activity,
+  Bot,
   Building2,
   CalendarDays,
   LayoutDashboard,
@@ -75,6 +76,12 @@ const items: NavItem[] = [
     href: '/dashboard/activity',
     icon: Activity,
     visible: (role) => hasPermission(role, Permission.AUDIT_READ),
+  },
+  {
+    label: 'Copilot',
+    href: '/dashboard/copilot',
+    icon: Bot,
+    visible: (role) => hasPermission(role, Permission.AI_SUMMARY),
   },
   {
     label: 'Settings',

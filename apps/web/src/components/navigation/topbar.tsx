@@ -54,6 +54,10 @@ const PAGE_META: Record<string, PageMeta> = {
     title: 'Security',
     description: 'Manage your account password and sign-in.',
   },
+  '/dashboard/copilot': {
+    title: 'Clinical Copilot',
+    description: 'AI assistant aware of your organization patients and activity.',
+  },
   '/admin': {
     title: 'Platform admin',
     description: 'Internal platform operations overview.',

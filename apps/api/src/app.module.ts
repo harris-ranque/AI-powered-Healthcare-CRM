@@ -38,6 +38,7 @@ import { AssistantModule } from './modules/assistant/assistant.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { UsageTrackingModule } from './modules/usage-tracking/usage-tracking.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { CopilotModule } from './modules/copilot/copilot.module';
 
 @Module({
   imports: [
@@ -95,6 +96,7 @@ import { AdminModule } from './modules/admin/admin.module';
     UsageTrackingModule,
     QueuesModule,
     AdminModule,
+    CopilotModule,
   ],
   // controllers: [AppController],
   providers: [
